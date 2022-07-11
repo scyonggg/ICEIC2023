@@ -372,8 +372,6 @@ class FeatureFusionBlock_custom(nn.Module):
             res = nn.functional.interpolate(
                 res, scale_factor=2, mode="bilinear", align_corners=self.align_corners
                           )   
-#            print(res.size())
-#            print(output.size())
             output = self.skip_add.add(output, res)
             # output += res
 
