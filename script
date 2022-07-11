@@ -1,0 +1,22 @@
+#Training 360 former
+python3 main.py --model_name /hdd/hklee/yuniw/360former/  --batch_size 1 --val_path ./SelfEqui_testset_full/ --lr 0.000005  --eval_crop_ratio 12 --DPT --S3D 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# 
