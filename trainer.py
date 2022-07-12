@@ -157,7 +157,7 @@ class Train(object):
                             depth = self.conv_decoder(features)
 
                             ######### scale_loss 가 column-wise manner 로 계산하는게 맞는지 check ########
-                            gen_loss = self.scale_loss(depth,gt)
+                            gen_loss = self.scale_loss(depth,gt,mask)
 
                             try: 
                                 gen_loss.backward()
@@ -195,6 +195,14 @@ class Train(object):
                 self.lr_scheduler.step()
                 eval_name = '3d60_%d' %(epoch)
                 self.sample(self.eval_data_path,g_path,eval_name,self.crop_ratio)
+    def post_process_disparity(self,disp):
+        
+        disp = disp.cpu().detach().numpy() 
+        _, h, w = disp.shape
+        l_disp = disp[0,:,:]
+        
+        return l_disp
+
 
     def process_sample(self,sample,height,width):
         map = sample
@@ -242,13 +250,12 @@ class Train(object):
             left = torch.from_numpy(input_image).unsqueeze(0).float().permute(0,3,1,2).cuda()
         
             
-            if self.config.DPT:
-                features, _, _ = self.dat(left)
-                depth = self.conv_decoder(features)
+            features, _, _ = self.dat(left)
+            depth = self.conv_decoder(features)
 
             if True:
                 max_value = torch.tensor([0.000005]).cuda()
-                depth = depth.unsqueeze(0)
+                depth = depth
                 depth =1. / torch.max(depth,max_value)
 
 
