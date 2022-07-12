@@ -270,6 +270,8 @@ class Conv_Decoder(BaseModel):
         super(Conv_Decoder, self).__init__()
 
         self.channels_last = channels_last
+        self.scale =1.0
+        self.shift = 1e-8
 
         # Instantiate fusion blocks
 
@@ -306,6 +308,13 @@ class Conv_Decoder(BaseModel):
         path_1 = self.refinenet1(path_2, features[0])
 
         out = self.output_conv(path_1)
+
+        ## Crop depth value from 0 to 1 ##
+        out = self.scale * out + self.shift
+        out[out < 1e-8] = 1e-8
+        out = 1.0 / out
+        out[out>1] = 1
+
 
         return out
 
