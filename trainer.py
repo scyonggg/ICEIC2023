@@ -146,11 +146,6 @@ class Train(object):
                             gt = self.to_variable(data[1])
                             mask = self.to_variable(torch.ones_like(gt)).detach()
                   
-                            if True: # test purpose (due to gpu constraint)
-                                inputs = self.resize(inputs,0.5)
-                                gt = self.resize(gt,0.5)
-                                mask = self.resize(mask,0.5)
-                                 
                             gt = gt / 32768.
                    
                             features, _, _ = self.dat(inputs)
