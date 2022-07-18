@@ -235,7 +235,9 @@ class DAT(nn.Module):
         return {'relative_position_bias_table', 'rpe_table'}
     
     def forward(self, x):
-        
+
+        print("input_size:" + str(x.size())) 
+
         x = self.patch_proj(x)
         positions = []
         references = []
@@ -298,6 +300,11 @@ class Conv_Decoder(BaseModel):
     def forward(self, features):
         if self.channels_last == True:
             x.contiguous(memory_format=torch.channels_last)
+
+        print("stage4:" + str(features[3].size()))
+        print("stage3:" + str(features[2].size()))
+        print("stage2:" + str(features[1].size()))
+        print("stage1:" + str(features[0].size()))
         
         path_4 = self.refinenet4(features[3])
 
