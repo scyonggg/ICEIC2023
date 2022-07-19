@@ -235,26 +235,22 @@ class DAT(nn.Module):
         return {'relative_position_bias_table', 'rpe_table'}
     
     def forward(self, x):
-        
+
         x = self.patch_proj(x)
         positions = []
         references = []
         features = []
         for i in range(4):
             x, pos, ref = self.stages[i](x)
-##############################################################
-            #### The purpose of this block?? ####
-            # Need to check this part #
+ 
+            features.append(x)
             if i < 3:
                 x = self.down_projs[i](x)
-#############################################################
-            features.append(x)
+            
             positions.append(pos)
             references.append(ref)
 
         return features, positions, references
-
-
 
 ##### Decoder model (refer to Dense prediction transformer) #####
 class Conv_Decoder(BaseModel):
@@ -275,12 +271,11 @@ class Conv_Decoder(BaseModel):
 
         # Instantiate fusion blocks
 
-        self.refinenet1 = _make_fusion_block(features//4, use_bn,expand=True)
-        self.refinenet2 = _make_fusion_block(features//2, use_bn,expand=True)
-        self.refinenet3 = _make_fusion_block(features, use_bn,expand=True)
-        self.refinenet4 = _make_fusion_block(features, use_bn)
+        self.refinenet1 = _make_fusion_block(features//8, use_bn,expand=False)
+        self.refinenet2 = _make_fusion_block(features//4, use_bn,expand=True)
+        self.refinenet3 = _make_fusion_block(features//2, use_bn,expand=True)
+        self.refinenet4 = _make_fusion_block(features, use_bn,expand=True)
 
-##################### Need to check this part ########################
         non_negative = True
 
         self.output_conv = nn.Sequential(
@@ -293,14 +288,12 @@ class Conv_Decoder(BaseModel):
             nn.Identity(),
         )
 
-
-
     def forward(self, features):
         if self.channels_last == True:
             x.contiguous(memory_format=torch.channels_last)
-        
-        path_4 = self.refinenet4(features[3])
 
+        path_4 = self.refinenet4(features[3])
+        
         path_3 = self.refinenet3(path_4, features[2])
         
         path_2 = self.refinenet2(path_3, features[1])

@@ -369,15 +369,13 @@ class FeatureFusionBlock_custom(nn.Module):
 
         if len(xs) == 2:
             res = self.resConfUnit1(xs[1])
-            res = nn.functional.interpolate(
-                res, scale_factor=2, mode="bilinear", align_corners=self.align_corners
-                          )   
+            
             output = self.skip_add.add(output, res)
-            # output += res
 
         output = self.resConfUnit2(output)
 
         ####################### Need to check this part ########################
+        # Are there better upscaling option ?? 
         output = nn.functional.interpolate(
             output, scale_factor=2, mode="bilinear", align_corners=self.align_corners
         )
