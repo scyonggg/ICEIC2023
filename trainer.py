@@ -183,8 +183,8 @@ class Train(object):
             e_path = os.path.join(self.model_path,'encoder-%d.pkl' % (epoch))
             d_path =  os.path.join(self.model_path,'decoder-%d.pkl' % (epoch + 1))
                          
-            torch.save(self.encoder.state_dict(),g_path)
-            torch.save(self.decoder.state_dict(),d_path)
+            torch.save(self.dat.state_dict(),e_path)
+            torch.save(self.conv_decoder.state_dict(),d_path)
             
             with torch.no_grad():
                 self.lr_scheduler.step()
