@@ -139,29 +139,26 @@ class Train(object):
         for epoch in range(self.num_epochs):
             for batch_num, data in enumerate(self.s3d_loader):
                 if True: 
-                    data = next(iter(self.s3d_loader))
-                    if True:
-                        if True:
-                            inputs = self.to_variable(data[0])
-                            gt = self.to_variable(data[1])
-                            mask = self.to_variable(torch.ones_like(gt)).detach()
+                    inputs = self.to_variable(data[0])
+                    gt = self.to_variable(data[1])
+                    mask = self.to_variable(torch.ones_like(gt)).detach()
                   
-                            gt = gt / 32768.
+                    gt = gt / 32768.
                    
-                            features, _, _ = self.dat(inputs)
-                            depth = self.conv_decoder(features)
+                    features, _, _ = self.dat(inputs)
+                    depth = self.conv_decoder(features)
 
-                            ######### scale_loss 가 column-wise manner 로 계산하는게 맞는지 check ########
-                            gen_loss = self.scale_loss(depth,gt,mask)
+                    ######### scale_loss 가 column-wise manner 로 계산하는게 맞는지 check ########
+                    gen_loss = self.scale_loss(depth,gt,mask)
 
-                            try: 
-                                gen_loss.backward()
-                                self.g_optimizer.step()
-                            except:
-                                print('skip_genbackward')
-                                self.g_optimizer.zero_grad()                           
+                    try: 
+                        gen_loss.backward()
+                        self.g_optimizer.step()
+                    except:
+                        print('skip_genbackward')
+                        self.g_optimizer.zero_grad()                           
 
-                    self.reset_grad()                   
+                self.reset_grad()                   
 
 
                 if (batch_num) % self.log_step == 0:
