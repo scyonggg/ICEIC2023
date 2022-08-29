@@ -50,7 +50,6 @@ class TransformerStage(nn.Module):
                  attn_drop, proj_drop, expansion, drop, drop_path_rate, use_dwc_mlp):
 
         super().__init__()
-        fmap_size = to_2tuple(fmap_size)
         self.depths = depths
         hc = dim_embed // heads
         assert dim_embed == heads * hc
@@ -113,15 +112,15 @@ class DAT(nn.Module):
     #### Need to set configurations manually / will be fixed in the near future
     #### Especially, check carefully 'window_size' & 'img_size'
     
-    def __init__(self, img_size=256, patch_size=4, num_classes=1000, expansion=4,
-                 dim_stem=128, dims=[64, 128, 256, 512], depths=[2, 2, 18, 2], 
+    def __init__(self, img_size=(512, 1024), patch_size=4, num_classes=1000, expansion=4,
+                 dim_stem=128, dims=[128, 256, 512, 1024], depths=[2, 2, 18, 2],  # DAT-Large pretrained model
                  heads=[4, 8, 16, 32], 
                  window_sizes=[8, 8, 8, 8],
                  drop_rate=0.0, attn_drop_rate=0.0, drop_path_rate=0.0, 
                  strides=[-1,-1,1,1], offset_range_factor=[-1, -1, 2, 2], 
                  stage_spec = [['L', 'S'], ['L', 'S'], ['L', 'D', 'L', 'D', 'L', 'D', 'L', 'D', 'L', 'D', 'L', 'D', 'L', 'D', 'L', 'D', 'L', 'D'], ['L', 'D']],
                  groups=[-1, -1, 4, 8],
-                 use_pes=[False, False, False, False], 
+                 use_pes=[False, False, True, True], 
                  dwc_pes=[False, False, False, False],
                  sr_ratios=[-1, -1, -1, -1], 
                  fixed_pes=[False, False, False, False],
@@ -141,12 +140,12 @@ class DAT(nn.Module):
             LayerNormProxy(dim_stem)
         ) 
 
-        img_size = img_size // patch_size
+        img_size = (img_size[0] // patch_size, img_size[1] // patch_size)
         dpr = [x.item() for x in torch.linspace(0, drop_path_rate, sum(depths))]
         
         self.stages = nn.ModuleList()
         for i in range(4):
-            dim1 = dim_stem if i == 0 else dims[i - 1] * 2
+            dim1 = dim_stem if i == 0 else dims[i - 1] * 2  # Baseline
             dim2 = dims[i]
 
             self.stages.append(
@@ -160,7 +159,7 @@ class DAT(nn.Module):
                 use_dwc_mlps[i])
             )
 
-            img_size = img_size // 2
+            img_size = (img_size[0] // 2, img_size[1] // 2)
 
         self.down_projs = nn.ModuleList()
         for i in range(3):
@@ -285,7 +284,7 @@ class Conv_Decoder(BaseModel):
             nn.ReLU(True),
             nn.Conv2d(32, 1, kernel_size=1, stride=1, padding=0),
             nn.ReLU(True) if non_negative else nn.Identity(),
-            nn.Identity(),
+#            nn.Identity(),
         )
 
     def forward(self, features):
