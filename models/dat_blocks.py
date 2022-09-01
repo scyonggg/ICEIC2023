@@ -93,8 +93,7 @@ class ShiftWindowAttention(LocalAttention):
     def __init__(self, dim, heads, window_size, attn_drop, proj_drop, shift_size, fmap_size):
         
         super().__init__(dim, heads, window_size, attn_drop, proj_drop)
-
-        self.fmap_size = to_2tuple(fmap_size)
+        self.fmap_size = fmap_size  # H W
         self.shift_size = shift_size
 
         assert 0 < self.shift_size < min(self.window_size), "wrong shift size."

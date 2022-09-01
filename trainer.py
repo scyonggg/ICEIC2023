@@ -28,7 +28,7 @@ from midas_loss import ScaleAndShiftInvariantLoss
 from models.dat import DAT, Conv_Decoder
 
 class Train(object):
-    def __init__(self,config,s3d_loader):
+    def __init__(self,config,s3d_loader, gpu, train_sampler):
         self.posenet = None
         self.checkpoint_path = config.checkpoint_path
         self.eval_data_path = config.val_path
@@ -56,8 +56,10 @@ class Train(object):
         self.dat = None
         self.conv_decoder = None 
         
+        self.enc_path = config.enc_path
+        self.dec_path = config.dec_path
         
-        self.scale_loss = ScaleAndShiftInvariantLoss().cuda()
+        self.scale_loss = ScaleAndShiftInvariantLoss().cuda(gpu)
         self.l1_loss = nn.L1Loss() 
         self.mse_loss = nn.MSELoss()
         self.crop_ratio = config.eval_crop_ratio
@@ -75,11 +77,14 @@ class Train(object):
             os.mkdir(self.test_path)
 
         self.num_samples = 5000
+        # DDP settings
+        self.gpu = gpu
+        self.distributed = config.distributed
+        self.train_sampler = train_sampler
 
         self.build_model()
 
     def build_model(self):
-
         self.dat = DAT()
         self.conv_decoder = Conv_Decoder() 
              
@@ -89,9 +94,25 @@ class Train(object):
 
         self.lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(self.g_optimizer, 0.95)
   
-        if torch.cuda.is_available():
-            self.dat.cuda()
-            self.conv_decoder.cuda()
+        if not torch.cuda.is_available():
+            print(f'Using CPU')
+        elif self.distributed:  # Using multi-GPUs
+            if self.gpu is not None:
+                torch.cuda.set_device(self.gpu)
+                self.dat.cuda(self.gpu)
+                self.dat = torch.nn.parallel.DistributedDataParallel(self.dat, device_ids=[self.gpu], find_unused_parameters=True)
+                self.conv_decoder.cuda(self.gpu)
+                self.conv_decoder = torch.nn.parallel.DistributedDataParallel(self.conv_decoder, device_ids=[self.gpu], find_unused_parameters=True)
+            else:
+                self.dat.cuda()
+                self.dat = torch.nn.parallel.DistributedDataParallel(self.dat, find_unused_parameters=True)
+                self.conv_decoder.cuda()
+                self.conv_decoder = torch.nn.parallel.DistributedDataParallel(self.conv_decoder, find_unused_parameters=True)
+
+        elif self.gpu is not None:  # Not using multi-GPUs
+            torch.cuda.set_device(self.gpu)
+            self.dat = self.dat.cuda(self.gpu)
+            self.conv_decoder = self.conv_decoder.cuda(self.gpu)
 
     def to_variable(self,x):
         if torch.cuda.is_available():
@@ -106,6 +127,50 @@ class Train(object):
     def reset_grad(self):
         self.dat.zero_grad()
         self.conv_decoder.zero_grad()
+        
+    def freeze(self, model : nn.Module):
+        for param in model.module.parameters():
+            param.requires_grad=False
+
+    def load_encoder(self):
+        '''
+        Load pretrained weights of encoder stages from DAT
+        '''
+        pretrained_enc_dict = torch.load(self.enc_path, map_location=torch.device("cpu"))
+        pretrained_enc_dict = pretrained_enc_dict['model']
+        # clean up below
+        pretrained_enc_dict = {k: v for k, v in pretrained_enc_dict.items() if 'relative_position_bias_table' not in k}
+        pretrained_enc_dict = {k: v for k, v in pretrained_enc_dict.items() if 'relative_position_index' not in k}
+        pretrained_enc_dict = {k: v for k, v in pretrained_enc_dict.items() if 'attn_mask' not in k}
+        pretrained_enc_dict = {k: v for k, v in pretrained_enc_dict.items() if 'rpe_table' not in k}
+        self.dat.load_state_dict(pretrained_enc_dict, strict=False)
+
+    def load_decoder(self):
+        '''
+        Load pretrained weights of fusion blocks from DPT
+        '''
+        pretrained_dec_dict = torch.load(self.dec_path, map_location=torch.device("cpu"))
+        pretrained_dec_scratch = { 'module.' + k[8:]: v for k, v in pretrained_dec_dict.items() if k.startswith('scratch')}
+        self.conv_decoder.load_state_dict(pretrained_dec_scratch, strict=False)
+
+    def load_checkpoint(self):
+        '''
+        Load checkpoint models. (Not validated)
+        '''
+        pretrained_dict = torch.load(self.checkpoint_path , map_location=torch.device("cpu"))
+        
+        enc_dict = self.dat.state_dict()
+        dec_dict = self.conv_decoder.state_dict()
+
+        enc_pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in list(enc_dict)}
+        dec_pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in list(dec_dict)}
+
+        enc_dict.update(enc_pretrained_dict)
+        dec_dict.update(dec_pretrained_dict)
+        
+        self.dat.load_state_dict(enc_dict)
+        self.conv_decoder.load_state_dict(dec_dict)
+
 
     def resize(self,input,scale):
         input = nn.functional.interpolate(
@@ -115,21 +180,30 @@ class Train(object):
     def train(self):
         if os.path.isfile(self.log_path):
             os.remove(self.log_path)  
-        if self.config.Continue:
+ 
+        if self.config.Pretrained:
+            '''
+            Load pretrained weights of DPT fusion blocks into self.conv_decoder
+            '''
+            # self.load_encoder()
+            self.load_decoder()
+            print('pretrained weights loaded')
+            if self.config.freeze:
+                self.freeze(self.conv_decoder)
+                print(f'Freeze decoder')
 
-            model_dict = self.depthnet.state_dict()
-            pretrained_dict = torch.load(self.checkpoint_path , map_location=torch.device("cpu"))
-            pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in model_dict}
-            model_dict.update(pretrained_dict) 
-            self.depthnet.load_state_dict(model_dict)
+        elif self.config.Continue:
+            '''
+            Load checkpoint of model
+            '''
+            # self.dat.load_state_dict(torch.load(self.enc_path))
+            self.conv_decoder.load_state_dict(torch.load(self.dec_path))
+            print('checkpoint weights loaded')
 
-            self.dat.load_state_dict(torch.load(test))
-            self.conv_decoder.load_state_dict(torch.load(test))
 
         self.max_depth = 255.0
         max_batch_num = len(self.s3d_loader) - 1
 
-        self.scale_loss = ScaleAndShiftInvariantLoss().cuda()
 ############################# Evaluation code ##########################
         with torch.no_grad(): 
             eval_name = '3d60_%d' %(0)
@@ -137,6 +211,9 @@ class Train(object):
 ########################################################################
 
         for epoch in range(self.num_epochs):
+            if self.distributed:
+                self.train_sampler.set_epoch(epoch)
+
             for batch_num, data in enumerate(self.s3d_loader):
                 if True: 
                     inputs = self.to_variable(data[0])

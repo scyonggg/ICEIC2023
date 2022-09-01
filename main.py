@@ -8,6 +8,7 @@ from data_load import EQUI_loader, S3D_loader
 from torchvision import transforms
 import torch
 def main(config):
+    os.environ['CUDA_VISIBLE_DEVICES'] = config.gpu
     cudnn.benchmark = True
 #    torch.manual_seed(1593665876)
 #    torch.cuda.manual_seed_all(4099049913103886)    
@@ -17,7 +18,25 @@ def main(config):
 #    torch.manual_seed(159111235)
 #    torch.cuda.manual_seed_all(4099049123103885)    
 
+    config.distributed = config.world_size > 1 or config.multiprocessing_distributed
+    ngpus_per_node = torch.cuda.device_count()
 
+    if config.multiprocessing_distributed:
+        config.world_size = ngpus_per_node * config.world_size
+        torch.multiprocessing.spawn(main_worker, nprocs=ngpus_per_node, args=(ngpus_per_node, config))
+    else:
+        main_worker(config.gpu, ngpus_per_node, config)
+
+def main_worker(gpu, ngpus_per_node, config):
+    if config.gpu is not None:
+        print(f'Use GPU: {gpu} for training')
+
+    if config.distributed:
+        if config.dist_url == "envs://" and config.rank == -1:
+            config.rank = int(os.environ["RANK"])
+        if config.multiprocessing_distributed:
+            config.rank = config.rank * ngpus_per_node + gpu
+        torch.distributed.init_process_group(backend=config.dist_backend, init_method=config.dist_url, world_size=config.world_size, rank=config.rank)
 
     transform = transforms.Compose([
                     transforms.Resize((config.input_height,config.input_width)),
@@ -28,17 +47,23 @@ def main(config):
     transform_s3d = transforms.Compose([
                     transforms.ToTensor()
                     ])
-     
-    if True:
-        S3D_data = S3D_loader(config.S3D_path,transform = transform_s3d,transform_t = transform_s3d)
-        S3D_dataloader = DataLoader(S3D_data,batch_size=config.batch_size,shuffle=True,num_workers=config.num_workers,pin_memory=True)
 
-    
+
+    S3D_data = S3D_loader(config.S3D_path,transform = transform_s3d,transform_t = transform_s3d)
+    if config.distributed:
+        train_sampler = torch.utils.data.distributed.DistributedSampler(S3D_data)
+    else:
+        train_sampler = None
+
+    config.batch_size = int(config.batch_size / ngpus_per_node)
+    config.num_workers = int((config.num_workers + ngpus_per_node - 1) / ngpus_per_node)
+
+    S3D_dataloader = DataLoader(S3D_data,batch_size=config.batch_size,num_workers=config.num_workers,pin_memory=True, sampler=train_sampler)
+
     if config.mode == 'train':
-        train = Train(config,S3D_dataloader)
+        train = Train(config,S3D_dataloader, gpu, train_sampler)
         train.train()
 
-    
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     
@@ -53,7 +78,8 @@ if __name__ == '__main__':
  
     ##### hyper-parameters #####
     parser.add_argument('--Continue', help=' Strat training from the pre-trained model', action='store_true')
-    
+    parser.add_argument('--Pretrained', help=' Strat training from the pre-trained model', action='store_true')
+
     parser.add_argument('--input_height', type=int, help='input height', default=256)
     parser.add_argument('--input_width', type=int, help='input width', default=512)
     parser.add_argument('--fovy_ratio', type=float, help='crop fovy ratio when training network', default=1)
@@ -66,7 +92,7 @@ if __name__ == '__main__':
     ##### training environment #####
     parser.add_argument('--num_epochs', type=int, default=10)
     parser.add_argument('--batch_size', type=int, default=2)
-    parser.add_argument('--num_workers', type=int, default=1)
+    parser.add_argument('--num_workers', type=int, default=4)
     parser.add_argument('--lr', type=float, default=0.0002)
     parser.add_argument('--beta1', type=float, default=0.5)        # momentum1 in Adam
     parser.add_argument('--beta2', type=float, default=0.999)      # momentum2 in Adam
@@ -77,6 +103,8 @@ if __name__ == '__main__':
     parser.add_argument('--model_path', type=str, default='models')
     parser.add_argument('--sample_path', type=str, default='samples')
     parser.add_argument('--eval_path', type=str, default='evaluate')
+    parser.add_argument('--enc_path', type=str, help='path to pretrained encoder weight', default='./dat_base_in1k_384.pth')
+    parser.add_argument('--dec_path', type=str, help='path to pretrained decoder weight', default='./dpt_large-midas-2f21e586.pt')
 
     ############ Set log step ############
     parser.add_argument('--log_step', type=int , default=10)
@@ -84,6 +112,14 @@ if __name__ == '__main__':
     parser.add_argument('--checkpoint_step', type=int , default=10000)
     parser.add_argument('--eval_crop_ratio', type=int , default=0)
     
+    ############ Distributed Data Parallel (DDP) ############
+    parser.add_argument('--world_size', type=int, default=1)
+    parser.add_argument('--rank', type=int, default=-1)
+    parser.add_argument('--gpu', type=str, default="0,1,2,3")
+    parser.add_argument('--dist-url', type=str, default="tcp://127.0.0.1:7777")
+    parser.add_argument('--dist-backend', type=str, default="nccl")
+    parser.add_argument('--multiprocessing_distributed', default=True)
+
     config = parser.parse_args()
     
     config_path = os.path.join(config.model_name,'config.txt')

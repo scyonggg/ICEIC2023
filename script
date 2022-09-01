@@ -1,22 +1,16 @@
 #Training 360 former
-python3 main.py --model_name /hdd/hklee/yuniw/360former/  --batch_size 1 --val_path ./SelfEqui_testset_full/ --lr 0.000005  --eval_crop_ratio 12 --S3D 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# 
+python3 main.py \
+--S3D_path /mnt/prj/360depth/datasets/Structured3D/Structured3D \
+--model_name ./checkpoints \
+--batch_size 4 \
+--val_path ./SelfEqui_testset_full/ \
+--num_epochs 50 \
+--lr 1e-5 \
+--eval_crop_ratio 12 \
+--S3D \
+--enc_path /mnt/prj/users/depth/Yun_checkpoints/encoder-6.pkl \
+--dec_path /mnt/prj/users/depth/Yun_checkpoints/decoder-6.pkl \
+--Continue \
+--world_size 1 \    # DDP setup
+--rank 0 \          # DDP setup
+--gpu 2,3           # Choose gpu ID(s) to use. (0~3)
