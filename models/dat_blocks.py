@@ -16,7 +16,14 @@ import einops
 from timm.models.layers import to_2tuple, trunc_normal_
 
 class LocalAttention(nn.Module):
-
+    """ Local Attention module
+    Args:
+        dim : dimenson size of input feature
+        heads : number of heads at each stage
+        window_size : size of window to get attention
+        attn_drop : dropout ratio after softmax in attention block
+        proj_drop : dropout ratio after DMHA (Deformable Multi-Head Attention)
+    """
     def __init__(self, dim, heads, window_size, attn_drop, proj_drop):
         
         super().__init__()
@@ -89,7 +96,16 @@ class LocalAttention(nn.Module):
         return x, None, None
 
 class ShiftWindowAttention(LocalAttention):
-
+    """ Shift-window attention module
+    Args:
+        dim : dimenson size of input feature
+        heads : number of heads at each stage
+        window_size : size of window to get attention
+        attn_drop : dropout ratio after softmax in attention block
+        proj_drop : dropout ratio after DMHA (Deformable Multi-Head Attention)
+        shift_size : size to shift the window.
+        fmap_size : size of input feature
+    """
     def __init__(self, dim, heads, window_size, attn_drop, proj_drop, shift_size, fmap_size):
         
         super().__init__(dim, heads, window_size, attn_drop, proj_drop)
@@ -125,7 +141,24 @@ class ShiftWindowAttention(LocalAttention):
     
 
 class DAttentionBaseline(nn.Module):
-
+    """ Deformable Attention module
+    
+    Args:
+        q_size : size of query feature
+        kv_size : size of key/value feature
+        n_heads : number of heads
+        n_head_channels : number of channels per head
+        n_groups : number of offset groups
+        attn_drop : dropout ratio after softamx in Attention block
+        proj_drop : dropout ratio after DMHA
+        stride : stride used in conv2D to get Q, K, V projection from feature, a.k.a. downsample factor r in paper.
+        offset_range_factor : offset range scale factor used in offset network, a.k.a. scale factor 's' in paper.
+        use_pe : whether to use position embedding (Boolean)
+        dwc_pe : whether to use depth-wise convolution as position embedding
+        no_off : whether to use offset. (True : Offset value = 0)
+        fixed_pe : whether to use fixed values (zero) as position embedding
+        stage_idx : index of each stages. (Stage 1 ~ Stage 4)
+    """
     def __init__(
         self, q_size, kv_size, n_heads, n_head_channels, n_groups,
         attn_drop, proj_drop, stride, 
@@ -201,7 +234,14 @@ class DAttentionBaseline(nn.Module):
     
     @torch.no_grad()
     def _get_ref_points(self, H_key, W_key, B, dtype, device):
-        
+        """
+        Args:
+            H_key : Height size of input feature
+            W_key : Width size of input feature
+            B : Batch size
+        Return:
+            ref : Reference points
+        """
         ref_y, ref_x = torch.meshgrid(
             torch.linspace(0.5, H_key - 0.5, H_key, dtype=dtype, device=device), 
             torch.linspace(0.5, W_key - 0.5, W_key, dtype=dtype, device=device)
@@ -223,7 +263,8 @@ class DAttentionBaseline(nn.Module):
         offset = self.conv_offset(q_off) # B * g 2 Hg Wg
         Hk, Wk = offset.size(2), offset.size(3)
         n_sample = Hk * Wk
-        
+
+        # Offset network
         if self.offset_range_factor > 0:
             offset_range = torch.tensor([1.0 / Hk, 1.0 / Wk], device=device).reshape(1, 2, 1, 1)
             offset = offset.tanh().mul(offset_range).mul(self.offset_range_factor)
@@ -234,11 +275,13 @@ class DAttentionBaseline(nn.Module):
         if self.no_off:
             offset = offset.fill(0.0)
             
+        # Deformed Points    
         if self.offset_range_factor >= 0:
             pos = offset + reference
         else:
             pos = (offset + reference).tanh()
         
+        # Sampled features
         x_sampled = F.grid_sample(
             input=x.reshape(B * self.n_groups, self.n_group_channels, H, W), 
             grid=pos[..., (1, 0)], # y, x -> x, y
@@ -253,6 +296,7 @@ class DAttentionBaseline(nn.Module):
         attn = torch.einsum('b c m, b c n -> b m n', q, k) # B * h, HW, Ns
         attn = attn.mul(self.scale)
         
+        # Relative Position Bias Embedding
         if self.use_pe:
             
             if self.dwc_pe:
@@ -293,7 +337,13 @@ class DAttentionBaseline(nn.Module):
         return y, pos.reshape(B, self.n_groups, Hk, Wk, 2), reference.reshape(B, self.n_groups, Hk, Wk, 2)
 
 class TransformerMLP(nn.Module):
-
+    """ MLP layer of the attention module
+    
+    Args:
+        channels : input feature channels
+        expansion : expansion ratio of feature channels
+        drop : dropout ratio
+    """
     def __init__(self, channels, expansion, drop):
         
         super().__init__()
@@ -329,7 +379,13 @@ class LayerNormProxy(nn.Module):
         return einops.rearrange(x, 'b h w c -> b c h w')
 
 class TransformerMLPWithConv(nn.Module):
-
+    """ Replace MLP Layer with Conv2D in the attention module
+    
+    Args:
+        channels : input feature channels
+        expansion : expansion ratio of feature channels
+        drop : dropout ratio
+    """
     def __init__(self, channels, expansion, drop):
         
         super().__init__()

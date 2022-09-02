@@ -122,6 +122,8 @@ if __name__ == '__main__':
 
     config = parser.parse_args()
     
+    if not os.path.exists(config.model_name):
+        os.mkdir(config.model_name)
     config_path = os.path.join(config.model_name,'config.txt')
     f = open(config_path,'w')
     print(config,file=f)

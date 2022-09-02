@@ -41,7 +41,34 @@ def _make_fusion_block(features, use_bn,expand=False):
 
 
 class TransformerStage(nn.Module):
-
+    '''
+    Args:
+        fmap_size   : size of feature
+        window_size : size of window to get local/shift-window attention
+        ns_per_pt   : Unknown parameter (Not implemented)
+        dim_in      : dimension size of input feature
+        dim_embed   : dimension size of embedded input feature
+        depths      : number of attention blocks in the stage (2*N_i in Table 1.)
+        stage_spec  : determine which attention moudle to use. L : Local, S : Shift-Window, D : Deformable Attention
+        n_groups    : number of offset groups in DMHA (Deformable Multi-Head Attention)
+        use_pe      : whether to use position embedding (Boolean)
+        sr_ratio    : Unknown parameter (Not implemented)
+        heads       : number of heads at each stage (Table 1.)
+        stride      : stride used in conv2D to get Q, K, V projection from feature, a.k.a. downsample factor r in paper.
+        offset_range_factor : offset range scale factor used in offset network, a.k.a. scale factor 's' in paper.
+        stage_idx   : index of stages. (Stage 1 ~ Stage 4)
+        dwc_pe      : whether to use depth-wise convolution as position embedding
+        no_off      : whether to use offset. (True : Offset = 0)
+        fixed_pe    : whether to use fixed values (zero) as position embedding
+        attn_drop   : dropout ratio after softamx in Attention block
+        proj_drop   : dropout ratio after DMHA (Deformable Multi-Head Attention)
+        expansion   : expansion ratio of channel size in MLP layer at Encoder attention block
+        drop        : dropout ratio at MLP after Attention block
+        drop_path_rate : DropPath ratio. Similar to dropout, but Dropout randomly zeros the whole target batch. Refer to :
+                            1. https://stackoverflow.com/questions/69175642/droppath-in-timm-seems-like-a-dropout
+                            2. https://github.com/rwightman/pytorch-image-models/blob/c5e0d1c700de2e39441af9b93f745aadf34be878/timm/models/layers/drop.py#L157
+        use_dwc_mlp : whether to use depth-wise convolution instead of MLP in attention block
+    '''
     def __init__(self, fmap_size, window_size, ns_per_pt,
                  dim_in, dim_embed, depths, stage_spec, n_groups, 
                  use_pe, sr_ratio, 
@@ -111,7 +138,35 @@ class TransformerStage(nn.Module):
 class DAT(nn.Module):
     #### Need to set configurations manually / will be fixed in the near future
     #### Especially, check carefully 'window_size' & 'img_size'
-    
+    ''' Deformable Attention Transformer
+    Args:
+        img_size    : size of input image
+        patch_size  : patch size at (first) patch embeddings
+        num_classes : number of classes used in classification task
+        expansion   : expansion ratio of channel size in MLP layer at Encoder attention block
+        dim_stem    : parameter C in Figure 3.
+        dims        : channel dimension of each stage (Table 1.)
+        depths      : number of attention blocks at each stage (2*N_i in Table 1.)
+        heads       : number of heads at each stage (Table 1.)
+        window_sizes: window size of Local Attention and Shift-Window Attention
+        drop_rate   : dropout ratio after MLP layer in Attention block
+        attn_drop_rate : dropout ratio after softamx in Attention block
+        drop_path_rate : DropPath ratio. Similar to dropout, but Dropout randomly zeros the whole batch unit. Refer to :
+                            1. https://stackoverflow.com/questions/69175642/droppath-in-timm-seems-like-a-dropout
+                            2. https://github.com/rwightman/pytorch-image-models/blob/c5e0d1c700de2e39441af9b93f745aadf34be878/timm/models/layers/drop.py#L157
+        strides     : stride used in conv2D to get Q, K, V projection from feature. A.K.A. downsample factor 'r' in paper.
+        offset_range_factor : offset range scale factor used in offset network. A.K.A. scale factor 's' in paper.
+        stage_spec  : determine which attention moudle to use. L : Local, S : Shift-Window, D : Deformable Attention
+        groups      : number of offset groups in DMHA (Deformable Multi-Head Attention)
+        use_pes     : whether to use position embedding (Boolean)
+        dwc_pes     : whether to use depth-wise convolution as position embedding
+        sr_ratios   : Unknown parameter (Not implemented)
+        fixed_pes   : whether to use fixed values (zero) as position embedding
+        no_offs     : whether to use offset
+        ns_per_pts  : Unknown parameter (Not implemented)
+        use_dwc_mlps: whether to use depth-wise convolution instead of MLP in attention block
+        use_conv_patches : whether to use convolutional patch embeddings. Refer to Table 9. (Appendix B.)
+    '''    
     def __init__(self, img_size=(512, 1024), patch_size=4, num_classes=1000, expansion=4,
                  dim_stem=128, dims=[128, 256, 512, 1024], depths=[2, 2, 18, 2],  # DAT-Large pretrained model
                  heads=[4, 8, 16, 32], 
@@ -255,7 +310,7 @@ class DAT(nn.Module):
 class Conv_Decoder(BaseModel):
     def __init__(
         self,
-        features=512,
+        features=1024,
         readout="project",
         channels_last=False,
         use_bn=False,
@@ -278,7 +333,7 @@ class Conv_Decoder(BaseModel):
         non_negative = True
 
         self.output_conv = nn.Sequential(
-            nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(128, 64, kernel_size=3, stride=1, padding=1),
             Interpolate(scale_factor=2, mode="bilinear", align_corners=True),
             nn.Conv2d(64, 32, kernel_size=3, stride=1, padding=1),
             nn.ReLU(True),

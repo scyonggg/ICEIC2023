@@ -197,7 +197,7 @@ class Train(object):
             Load checkpoint of model
             '''
             # self.dat.load_state_dict(torch.load(self.enc_path))
-            self.conv_decoder.load_state_dict(torch.load(self.dec_path))
+            self.conv_decoder.load_state_dict(torch.load(self.dec_path), strict=False)  # strict=False option ignores error when size mismatchs
             print('checkpoint weights loaded')
 
 

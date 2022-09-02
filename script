@@ -2,7 +2,7 @@
 python3 main.py \
 --S3D_path /mnt/prj/360depth/datasets/Structured3D/Structured3D \
 --model_name ./checkpoints \
---batch_size 4 \
+--batch_size 2 \
 --val_path ./SelfEqui_testset_full/ \
 --num_epochs 50 \
 --lr 1e-5 \
@@ -10,7 +10,8 @@ python3 main.py \
 --S3D \
 --enc_path /mnt/prj/users/depth/Yun_checkpoints/encoder-6.pkl \
 --dec_path /mnt/prj/users/depth/Yun_checkpoints/decoder-6.pkl \
---Continue \
---world_size 1 \    # DDP setup
---rank 0 \          # DDP setup
---gpu 2,3           # Choose gpu ID(s) to use. (0~3)
+--world_size 1 \
+--rank 0 \
+--dist-url tcp://127.0.0.1:7890 \
+--gpu 2,3
+#--Continue \
