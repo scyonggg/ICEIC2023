@@ -1,7 +1,7 @@
 #Training 360 former
 python3 main.py \
 --S3D_path /mnt/prj/360depth/datasets/Structured3D/Structured3D \
---model_name ./checkpoints/$(date +"%Y_%m_%d") \
+--model_name ./checkpoints \
 --batch_size 2 \
 --val_path ./SelfEqui_testset_full/ \
 --num_epochs 50 \
