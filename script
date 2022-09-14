@@ -13,6 +13,6 @@ python3 main.py \
 --Pretrained \
 --world_size 1 \
 --rank 0 \
---dist-url tcp://127.0.0.1:9992 \
---gpu 1
+--dist-url tcp://127.0.0.1:9993 \
+--gpu 3
 #--Continue \
