@@ -168,7 +168,7 @@ class DAT(nn.Module):
         use_conv_patches : whether to use convolutional patch embeddings. Refer to Table 9. (Appendix B.)
     '''    
     def __init__(self, img_size=(512, 1024), patch_size=4, num_classes=1000, expansion=4,
-                 dim_stem=128, dims=[128, 256, 512, 1024], depths=[2, 2, 18, 2],  # DAT-Large pretrained model
+                 dim_stem=256, dims=[256, 256, 256, 256], depths=[2, 2, 18, 2],
                  heads=[4, 8, 16, 32], 
                  window_sizes=[8, 8, 8, 8],
                  drop_rate=0.0, attn_drop_rate=0.0, drop_path_rate=0.0, 
@@ -200,7 +200,8 @@ class DAT(nn.Module):
         
         self.stages = nn.ModuleList()
         for i in range(4):
-            dim1 = dim_stem if i == 0 else dims[i - 1] * 2  # Baseline
+            # dim1 = dim_stem if i == 0 else dims[i - 1] * 2  # Baseline
+            dim1 = dim_stem if i == 0 else dims[i - 1] # Baseline
             dim2 = dims[i]
 
             self.stages.append(
@@ -310,7 +311,7 @@ class DAT(nn.Module):
 class Conv_Decoder(BaseModel):
     def __init__(
         self,
-        features=1024,
+        features=256,
         readout="project",
         channels_last=False,
         use_bn=False,
@@ -325,17 +326,17 @@ class Conv_Decoder(BaseModel):
 
         # Instantiate fusion blocks
 
-        self.refinenet1 = _make_fusion_block(features//8, use_bn,expand=False)
-        self.refinenet2 = _make_fusion_block(features//4, use_bn,expand=True)
-        self.refinenet3 = _make_fusion_block(features//2, use_bn,expand=True)
-        self.refinenet4 = _make_fusion_block(features, use_bn,expand=True)
+        self.refinenet1 = _make_fusion_block(features, use_bn,expand=False)
+        self.refinenet2 = _make_fusion_block(features, use_bn,expand=False)
+        self.refinenet3 = _make_fusion_block(features, use_bn,expand=False)
+        self.refinenet4 = _make_fusion_block(features, use_bn,expand=False)
 
         non_negative = True
 
         self.output_conv = nn.Sequential(
-            nn.Conv2d(128, 64, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(256, 128, kernel_size=3, stride=1, padding=1),
             Interpolate(scale_factor=2, mode="bilinear", align_corners=True),
-            nn.Conv2d(64, 32, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(128, 32, kernel_size=3, stride=1, padding=1),
             nn.ReLU(True),
             nn.Conv2d(32, 1, kernel_size=1, stride=1, padding=0),
             nn.ReLU(True) if non_negative else nn.Identity(),
