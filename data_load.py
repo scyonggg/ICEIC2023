@@ -89,7 +89,7 @@ class S3D_loader(data.Dataset):
                 for final_path in dir_sub_dir:
                     self.image_paths.append(os.path.join(final_path,'rgb_rawlight.png'))                    
                     self.depth_paths.append(os.path.join(final_path,'depth.png'))                    
-                    self.semantic_paths.append(os.path.join(final_path,'semantic.png'))                    
+                    # self.semantic_paths.append(os.path.join(final_path,'semantic.png'))                    
                     
                 self.transform = transform
                 self.transform_t = transform_t
@@ -112,20 +112,20 @@ class S3D_loader(data.Dataset):
             
             image_path = self.image_paths[index]
             depth_path = self.depth_paths[index]
-            semantic_path = self.semantic_paths[index]
+            # semantic_path = self.semantic_paths[index]
                 
             image = Image.open(image_path).convert('RGB')
             depth = io.imread(depth_path,as_gray=True).astype(np.float)
-            semantic = self.load_semantic(semantic_path)
-            semantic_rgb = Image.open(semantic_path).convert('RGB')
+            # semantic = self.load_semantic(semantic_path)
+            # semantic_rgb = Image.open(semantic_path).convert('RGB')
 
             data=[]
 
         if self.transform is not None:
             data.append(self.transform(image))
             data.append(self.transform_t(depth))
-            data.append(self.transform(semantic))
-            data.append(self.transform(semantic_rgb))
+            # data.append(self.transform(semantic))
+            # data.append(self.transform(semantic_rgb))
 
 
         return data
