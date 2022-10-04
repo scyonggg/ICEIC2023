@@ -12,6 +12,7 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import timm
 
 from timm.models.layers import DropPath, to_2tuple
 
@@ -183,19 +184,26 @@ class DAT(nn.Module):
                  ns_per_pts=[4, 4, 4, 4],
                  use_dwc_mlps=[False, False, False, False],
                  use_conv_patches=False,
+                 hybrid=True,
                  **kwargs):
 
         super().__init__()
 
-        self.patch_proj = nn.Sequential(
-            nn.Conv2d(3, dim_stem, 7, patch_size, 3),
-            LayerNormProxy(dim_stem)
-        ) if use_conv_patches else nn.Sequential(
-            nn.Conv2d(3, dim_stem, patch_size, patch_size, 0),
-            LayerNormProxy(dim_stem)
-        ) 
+        if hybrid:  # Use hybrid patch embedding
+            self.patch_proj = self.hybrid_patch_embedding()
+            img_size = (img_size[0] // 4, img_size[1] // 4)
 
-        img_size = (img_size[0] // patch_size, img_size[1] // patch_size)
+        else:   # Use convolutional patch embedding
+            self.patch_proj = nn.Sequential(
+                nn.Conv2d(3, dim_stem, 7, patch_size, 3),
+                LayerNormProxy(dim_stem)
+            ) if use_conv_patches else nn.Sequential(
+                nn.Conv2d(3, dim_stem, patch_size, patch_size, 0),
+                LayerNormProxy(dim_stem)
+            ) 
+            img_size = (img_size[0] // patch_size, img_size[1] // patch_size)   
+
+
         dpr = [x.item() for x in torch.linspace(0, drop_path_rate, sum(depths))]
         
         self.stages = nn.ModuleList()
@@ -240,6 +248,17 @@ class DAT(nn.Module):
             if isinstance(m, (nn.Linear, nn.Conv2d)):
                 nn.init.kaiming_normal_(m.weight)
                 nn.init.zeros_(m.bias)
+                
+    def hybrid_patch_embedding(self, name='resnet50'):
+        model = timm.create_model(name, pretrained=False)
+        
+        new_model = []
+        for k, v in model._modules.items(): # Keys : ['conv1', 'bn1', 'act1', 'maxpool', 'layer1', 'layer2', 'layer3', 'layer4', 'global_pool', 'fc']
+            if k in ['conv1', 'bn1', 'act1', 'maxpool', 'layer1']:
+                new_model.append(v)
+
+        new_model = nn.Sequential(*new_model)
+        return new_model
                 
     @torch.no_grad()
     def load_pretrained(self, state_dict):
