@@ -79,6 +79,8 @@ if __name__ == '__main__':
     ##### hyper-parameters #####
     parser.add_argument('--Continue', help=' Strat training from the pre-trained model', action='store_true')
     parser.add_argument('--Pretrained', help=' Strat training from the pre-trained model', action='store_true')
+    parser.add_argument('--freeze', help=' Freeze decoder weight', action='store_true')
+
 
     parser.add_argument('--input_height', type=int, help='input height', default=256)
     parser.add_argument('--input_width', type=int, help='input width', default=512)

@@ -9,9 +9,10 @@ python3 main.py \
 --eval_crop_ratio 12 \
 --S3D \
 --enc_path /mnt/prj/users/depth/Yun_checkpoints/encoder-6.pkl \
---dec_path /mnt/prj/users/depth/Yun_checkpoints/decoder-6.pkl \
+--dec_path /mnt/prj/users/depth/Shin_checkpoints/dpt_large-midas-2f21e586.pt \
+--Pretrained \
 --world_size 1 \
 --rank 0 \
---dist-url tcp://127.0.0.1:7890 \
---gpu 2,3
+--dist-url tcp://127.0.0.1:9993 \
+--gpu 3
 #--Continue \
