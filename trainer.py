@@ -26,6 +26,7 @@ import skimage.transform
 
 from midas_loss import ScaleAndShiftInvariantLoss
 from models.dat import DAT, Conv_Decoder
+from models.cswin import CSWinDepthModel
 
 class Train(object):
     def __init__(self,config,s3d_loader, gpu, train_sampler):
@@ -85,7 +86,8 @@ class Train(object):
         self.build_model()
 
     def build_model(self):
-        self.dat = DAT()
+        # self.dat = DAT()
+        self.dat = CSWinDepthModel(split_size=[4,4,8,8], num_heads=[8,16,32,32], hybrid=True)
         self.conv_decoder = Conv_Decoder() 
              
         self.g_optimizer = optim.AdamW([{"params": list(self.dat.parameters())},
@@ -222,7 +224,8 @@ class Train(object):
                   
                     gt = gt / 32768.
                    
-                    features, _, _ = self.dat(inputs)
+                    # features, _, _ = self.dat(inputs)
+                    features = self.dat(inputs)
                     depth = self.conv_decoder(features)
 
                     ######### scale_loss 가 column-wise manner 로 계산하는게 맞는지 check ########
@@ -319,7 +322,8 @@ class Train(object):
             left = torch.from_numpy(input_image).unsqueeze(0).float().permute(0,3,1,2).cuda()
         
             
-            features, _, _ = self.dat(left)
+            # features, _, _ = self.dat(left)
+            features = self.dat(left)
             depth = self.conv_decoder(features)
 
             if True:
