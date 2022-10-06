@@ -273,6 +273,11 @@ class Tune_Block(nn.Module):
 
 class CSWinTransformer(nn.Module):
     """ Vision Transformer with support for patch or hybrid CNN input stage
+    Args:
+        depth       : Number of blocks in each stage
+        split_size  : Width(Height) of stripe size in each stage
+        num_heads   : Number of heads in each stage
+        hybrid      : Whether to use hybrid patch embedding (ResNet50)
     """
     def __init__(self, img_size=[512, 1024], patch_size=16, in_chans=3, num_classes=1000, embed_dim=96, depth=[2,2,6,2], split_size = [3,5,7],
                  num_heads=12, mlp_ratio=4., qkv_bias=True, qk_scale=None, drop_rate=0., attn_drop_rate=0.,
@@ -369,6 +374,8 @@ class CSWinTransformer(nn.Module):
             nn.init.constant_(m.weight, 1.0)
                 
     def hybrid_patch_embedding(self, name='resnet50'):
+        """ Parsing some layers of the ResNet50 model for hybrid patch embedding
+        """
         model = timm.create_model(name, pretrained=False)
         
         new_model = []
@@ -469,20 +476,15 @@ def CSWin_144_24322_large_224(pretrained=False, **kwargs):
     model.default_cfg = default_cfgs['cswin_224']
     return model
 
-@register_model ##
-def my_CSWin_144_24322_large_224(pretrained=False, split_size=[1,2,8,8], img_size=[512, 1024], **kwargs):
-    model = CSWinTransformer(patch_size=4, embed_dim=256, depth=[2,4,32,2],
-        split_size=split_size, num_heads=[8, 16, 32, 32], mlp_ratio=4., img_size=img_size, **kwargs)
-    model.default_cfg = default_cfgs['cswin_224']
-    return model
 
-
+# Please refer to comments in the CSWinTransformer class for the meaning of each configurations
 @register_model
 def CSWinDepthModel(pretrained=False, split_size=[1,2,8,8], img_size=[512, 1024], num_heads=[8,16,32,32], **kwargs):
     model = CSWinTransformer(patch_size=4, embed_dim=256, depth=[2,4,32,2],
         split_size=split_size, num_heads=num_heads, mlp_ratio=4., img_size=img_size, **kwargs)
     model.default_cfg = default_cfgs['cswin_224']
     return model
+
 
 ### 384 models
 
