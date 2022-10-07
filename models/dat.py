@@ -28,7 +28,7 @@ from .blocks import (
     forward_vit,
 )
 from .base_model import BaseModel
-
+import PixelUnshuffle
 
 def _make_fusion_block(features, use_bn,expand=False):
     return FeatureFusionBlock_custom(

@@ -100,8 +100,14 @@ if __name__ == '__main__':
     parser.add_argument('--beta2', type=float, default=0.999)      # momentum2 in Adam
     
     ############## Directory ############## 
+    parser.add_argument('--use_hybrid', help='Use hybrid patch embedding', action='store_true')
+    parser.add_argument("--backbone",
+                                 type=str,
+                                 help="backbone to be used",
+                                 choices=["Swin", "DAT", "CSwin"],
+                                 default="Cswin")
+ 
     parser.add_argument('--model_name',help='path where models are to be saved' , type=str, default='./checkpoints/default') 
-    
     parser.add_argument('--model_path', type=str, default='models')
     parser.add_argument('--sample_path', type=str, default='samples')
     parser.add_argument('--eval_path', type=str, default='evaluate')

@@ -20,7 +20,7 @@ from einops.layers.torch import Rearrange
 import torch.utils.checkpoint as checkpoint
 import numpy as np
 import time
-
+import PixelUnshuffle
 def _cfg(url='', **kwargs):
     return {
         'url': url,
@@ -281,7 +281,7 @@ class CSWinTransformer(nn.Module):
     """
     def __init__(self, img_size=[512, 1024], patch_size=16, in_chans=3, num_classes=1000, embed_dim=96, depth=[2,2,6,2], split_size = [3,5,7],
                  num_heads=12, mlp_ratio=4., qkv_bias=True, qk_scale=None, drop_rate=0., attn_drop_rate=0.,
-                 drop_path_rate=0., hybrid_backbone=None, norm_layer=nn.LayerNorm, use_chk=False, hybrid=True):
+                 drop_path_rate=0., hybrid_backbone=None, norm_layer=nn.LayerNorm, use_chk=False, hybrid=False):
         super().__init__()
         self.use_chk = use_chk
         self.num_classes = num_classes
@@ -292,15 +292,21 @@ class CSWinTransformer(nn.Module):
 
         self.patch_proj = self.hybrid_patch_embedding()
 
-        self.stage1_conv_embed = nn.Sequential(
+        self.stage1_conv_embed2= nn.Sequential(
             self.patch_proj,
             Rearrange('b c h w -> b (h w) c', h = img_size[0]//4, w = img_size[1]//4),
             nn.LayerNorm(embed_dim)
         ) if hybrid else nn.Sequential(
-            nn.Conv2d(in_chans, embed_dim, 7, 4, 2),
+            nn.Conv2d(in_chans, embed_dim, 7, 2, 3),
             Rearrange('b c h w -> b (h w) c', h = img_size[0]//4, w = img_size[1]//4),
             nn.LayerNorm(embed_dim)
         )
+
+        self.stage1_conv =  nn.Conv2d(in_chans, embed_dim // 4, 7, 2, 3)
+        self.rearrange = nn.Sequential(Rearrange('b c h w -> b (h w) c', h = img_size[0]//4, w = img_size[1]//4),
+            nn.LayerNorm(embed_dim))
+ 
+
 
         curr_dim = embed_dim
         dpr = [x.item() for x in torch.linspace(0, drop_path_rate, np.sum(depth))]  # stochastic depth decay rule
@@ -407,7 +413,11 @@ class CSWinTransformer(nn.Module):
     def forward_features(self, x):
         features = []
         B = x.shape[0]
-        x = self.stage1_conv_embed(x)
+#        x = self.stage1_conv_embed(x)
+        x = self.stage1_conv(x)
+        x = PixelUnshuffle.pixel_unshuffle(x,2)
+        x = self.rearrange(x)
+
         for blk in self.stage1:
             if self.use_chk:
                 x = checkpoint.checkpoint(blk, x)

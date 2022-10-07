@@ -53,8 +53,10 @@ class Train(object):
         self.input_height = config.input_height
         self.parameters_to_train = []
         self.max_norm = 1
+        self.use_hybrid = self.config.use_hybrid
+        self.backbone = self.config.backbone
 
-        self.dat = None
+        self.encoder = None
         self.conv_decoder = None 
         
         self.enc_path = config.enc_path
@@ -86,11 +88,21 @@ class Train(object):
         self.build_model()
 
     def build_model(self):
-        # self.dat = DAT()
-        self.dat = CSWinDepthModel(split_size=[4,4,8,8], num_heads=[8,16,32,32], hybrid=True)
+        if self.backbone == 'CSwin':
+            self.encoder = CSWinDepthModel(split_size=[4,4,8,8], num_heads=[8,16,32,32], hybrid=self.use_hybrid)
+        elif self.backbone == 'DAT':
+            self.encoder = DAT(hybrid=self.use_hybrid)
+        elif self.backbone == 'Swin':
+            self.encoder = DAT(strides=[-1,-1,-1,-1], offset_range_factor=[-1, -1, -1, -1], 
+                 stage_spec = [['L', 'S'], ['L', 'S'], ['L', 'S', 'L', 'S', 'L', 'S', 'L', 'S', 'L', 'S', 'L', 'S', 'L', 'S', 'L', 'S', 'L', 'S'], ['L', 'S']], groups=[-1, -1, -1,-1], hybrid=self.use_hybrid)
+        
+        else:
+            print("Error")
+            break
+
+
         self.conv_decoder = Conv_Decoder() 
-             
-        self.g_optimizer = optim.AdamW([{"params": list(self.dat.parameters())},
+        self.g_optimizer = optim.AdamW([{"params": list(self.encoder.parameters())},
                                          {"params": list(self.conv_decoder.parameters())}],
                                         self.lr,[self.beta1,self.beta2])
 
@@ -101,19 +113,19 @@ class Train(object):
         elif self.distributed:  # Using multi-GPUs
             if self.gpu is not None:
                 torch.cuda.set_device(self.gpu)
-                self.dat.cuda(self.gpu)
-                self.dat = torch.nn.parallel.DistributedDataParallel(self.dat, device_ids=[self.gpu], find_unused_parameters=True)
+                self.encoder.cuda(self.gpu)
+                self.encoder = torch.nn.parallel.DistributedDataParallel(self.encoder, device_ids=[self.gpu], find_unused_parameters=True)
                 self.conv_decoder.cuda(self.gpu)
                 self.conv_decoder = torch.nn.parallel.DistributedDataParallel(self.conv_decoder, device_ids=[self.gpu], find_unused_parameters=True)
             else:
-                self.dat.cuda()
-                self.dat = torch.nn.parallel.DistributedDataParallel(self.dat, find_unused_parameters=True)
+                self.encoder.cuda()
+                self.encoder = torch.nn.parallel.DistributedDataParallel(self.encoder, find_unused_parameters=True)
                 self.conv_decoder.cuda()
                 self.conv_decoder = torch.nn.parallel.DistributedDataParallel(self.conv_decoder, find_unused_parameters=True)
 
         elif self.gpu is not None:  # Not using multi-GPUs
             torch.cuda.set_device(self.gpu)
-            self.dat = self.dat.cuda(self.gpu)
+            self.encoder = self.encoder.cuda(self.gpu)
             self.conv_decoder = self.conv_decoder.cuda(self.gpu)
 
     def to_variable(self,x):
@@ -127,7 +139,7 @@ class Train(object):
         return transform(input)
  
     def reset_grad(self):
-        self.dat.zero_grad()
+        self.encoder.zero_grad()
         self.conv_decoder.zero_grad()
         
     def freeze(self, model : nn.Module):
@@ -145,7 +157,7 @@ class Train(object):
         pretrained_enc_dict = {k: v for k, v in pretrained_enc_dict.items() if 'relative_position_index' not in k}
         pretrained_enc_dict = {k: v for k, v in pretrained_enc_dict.items() if 'attn_mask' not in k}
         pretrained_enc_dict = {k: v for k, v in pretrained_enc_dict.items() if 'rpe_table' not in k}
-        self.dat.load_state_dict(pretrained_enc_dict, strict=False)
+        self.encoder.load_state_dict(pretrained_enc_dict, strict=False)
 
     def load_decoder(self):
         '''
@@ -161,7 +173,7 @@ class Train(object):
         '''
         pretrained_dict = torch.load(self.checkpoint_path , map_location=torch.device("cpu"))
         
-        enc_dict = self.dat.state_dict()
+        enc_dict = self.encoder.state_dict()
         dec_dict = self.conv_decoder.state_dict()
 
         enc_pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in list(enc_dict)}
@@ -170,7 +182,7 @@ class Train(object):
         enc_dict.update(enc_pretrained_dict)
         dec_dict.update(dec_pretrained_dict)
         
-        self.dat.load_state_dict(enc_dict)
+        self.encoder.load_state_dict(enc_dict)
         self.conv_decoder.load_state_dict(dec_dict)
 
 
@@ -198,7 +210,12 @@ class Train(object):
             '''
             Load checkpoint of model
             '''
-            # self.dat.load_state_dict(torch.load(self.enc_path))
+            dat_dict = self.encoder.state_dict()
+            pretrained_dict = torch.load(self.config.enc_path, map_location=torch.device("cpu"))
+            pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in dat_dict}
+            dat_dict.update(pretrained_dict)
+            self.encoder.load_state_dict(dat_dict)
+            
             self.conv_decoder.load_state_dict(torch.load(self.dec_path), strict=False)  # strict=False option ignores error when size mismatchs
             print('checkpoint weights loaded')
 
@@ -223,9 +240,11 @@ class Train(object):
                     mask = self.to_variable(torch.ones_like(gt)).detach()
                   
                     gt = gt / 32768.
-                   
-                    # features, _, _ = self.dat(inputs)
-                    features = self.dat(inputs)
+                    if self.backbone == 'Cswin':
+                        features = self.encoder(inputs)
+                    else:
+                        features, _, _ = self.encoder(inputs)
+
                     depth = self.conv_decoder(features)
 
                     ######### scale_loss 가 column-wise manner 로 계산하는게 맞는지 check ########
@@ -258,9 +277,9 @@ class Train(object):
 
             
             e_path = os.path.join(self.model_path,'encoder-%d.pkl' % (epoch))
-            d_path =  os.path.join(self.model_path,'decoder-%d.pkl' % (epoch + 1))
+            d_path =  os.path.join(self.model_path,'decoder-%d.pkl' % (epoch ))
                          
-            torch.save(self.dat.state_dict(),e_path)
+            torch.save(self.encoder.state_dict(),e_path)
             torch.save(self.conv_decoder.state_dict(),d_path)
             
             with torch.no_grad():
@@ -322,8 +341,11 @@ class Train(object):
             left = torch.from_numpy(input_image).unsqueeze(0).float().permute(0,3,1,2).cuda()
         
             
-            # features, _, _ = self.dat(left)
-            features = self.dat(left)
+            if self.backbone == 'CSwin':
+                features = self.encoder(left)
+            else:
+                features,_,_ = self.encoder(left)
+
             depth = self.conv_decoder(features)
 
             if True:
