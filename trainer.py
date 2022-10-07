@@ -98,7 +98,6 @@ class Train(object):
         
         else:
             print("Error")
-            break
 
 
         self.conv_decoder = Conv_Decoder() 
@@ -216,7 +215,7 @@ class Train(object):
             dat_dict.update(pretrained_dict)
             self.encoder.load_state_dict(dat_dict)
             
-            self.conv_decoder.load_state_dict(torch.load(self.dec_path), strict=False)  # strict=False option ignores error when size mismatchs
+            self.conv_decoder.load_state_dict(torch.load(self.dec_path), strict=True)  # strict=False option ignores error when size mismatchs
             print('checkpoint weights loaded')
 
 
@@ -240,7 +239,7 @@ class Train(object):
                     mask = self.to_variable(torch.ones_like(gt)).detach()
                   
                     gt = gt / 32768.
-                    if self.backbone == 'Cswin':
+                    if self.backbone == 'CSwin':
                         features = self.encoder(inputs)
                     else:
                         features, _, _ = self.encoder(inputs)
@@ -267,7 +266,14 @@ class Train(object):
                     
                 if (batch_num) % self.sample_step == 0:
                     g_path = os.path.join(self.model_path,'generator-%d.pkl' % (epoch ))
-                    d_path =  os.path.join(self.model_path,'dis-%d.pkl' % (epoch +1 ))
+                    d_path =  os.path.join(self.model_path,'dis-%d.pkl' % (epoch ))
+
+                    e_path_latest = os.path.join(self.model_path,'encoder_latest.pkl')
+                    d_path_latest = os.path.join(self.model_path,'decoder_latest.pkl')
+
+
+                    torch.save(self.encoder.state_dict(),e_path_latest)
+                    torch.save(self.conv_decoder.state_dict(),d_path_latest)
                     
                     eval_name = '3d60_%d' %(epoch)
 

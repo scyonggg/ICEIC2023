@@ -10,10 +10,11 @@ python3 main.py \
 --S3D \
 --enc_path ./checkpoints/baseline_37/models/encoder-8.pkl \
 --dec_path ./checkpoints/baseline_37/models/decoder-9.pkl \
---Continue \
 --world_size 1 \
 --rank 0 \
 --gpu 0 \
-#--dist-url tcp://127.0.0.1:9993 \
+--backbone CSwin \
+--Continue 
 
+#--dist-url tcp://127.0.0.1:9993 \
 #--Continue \
