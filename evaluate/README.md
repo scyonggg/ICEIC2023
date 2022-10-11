@@ -1,13 +1,11 @@
 # Evaluation
 
 #### 1) Download pre-trained models
-* Pre-trained Omnidepth model: [rectnet.pth](https://github.com/meder411/OmniDepth-PyTorch)
-* Pre-trained SvSyn model : [UD @ epoch 16](https://github.com/VCL3D/SphericalViewSynthesis)
-* Pre-trained Bifuse model : [Bifuse_Pretrained.pkl](https://github.com/Yeh-yu-hsuan/BiFuse)
-* Pre-trained Hohonet model : [s2d3d_depth_HOHO_depth_dct_efficienthc_TransEn1/ep60.pth](https://github.com/sunset1995/HoHoNet) (for Stanford3D,Stanford data), [mp3d_depth_HOHO_depth_dct_efficienthc_TransEn1/ep60.pth](https://github.com/sunset1995/HoHoNet) (for others)
+* Pre-trained Bifuse model : will be uploaded.
+* Pre-trained Hohonet model : will be uploaded
 * Pre-trained Joint_360depth model : Refer to [Joint_360depth](https://github.com/yuniw18/Joint_360depth)
 
-#### 2) Prepare the test dataset (currently, Structured3D dataset were tested)
+#### 2) Prepare the test dataset (Pano3D testset will be added)
 * [3D60 data](https://github.com/VCL3D/3D60) (Stanford3D, Matterport3D, SunCG): Create train/val/test split following their instructuions.   We only use Center view for 3D60 dataset.   Refer to the sample test split of Stanford3D data in 3D60_split folder.
 * [Stanford data](https://github.com/alexsax/2D-3D-Semantics): Create train/val/test split following their instructuions. Data folder should be constructed as below. Refer to their repositoiries for more details.
 
