@@ -11,14 +11,45 @@ from torch.utils.data import ConcatDataset
 from torchvision import transforms
 
 from pano_loader.pano_loader import Pano3D
+import os
+from torch.backends import cudnn
 
-def evaluate_main(config):
+
+def main(config):
+    os.environ['CUDA_VISIBLE_DEVICES'] = config.gpu
+    cudnn.benchmark = True
+
+    torch.manual_seed(159111236)
+    torch.cuda.manual_seed_all(4099049123103886)    
+
+    config.distributed = config.world_size > 1 or config.multiprocessing_distributed
+    ngpus_per_node = torch.cuda.device_count()
+
+    if config.multiprocessing_distributed:
+        config.world_size = ngpus_per_node * config.world_size
+        torch.multiprocessing.spawn(main_worker, nprocs=ngpus_per_node, args=(ngpus_per_node, config))
+    else:
+        main_worker(config.gpu, ngpus_per_node, config)
+
+
+def main_worker(gpu, ngpus_per_node, config):
     
     transform = transforms.Compose([
             transforms.ToTensor()])
     
     input_dir = ""
-    device_ids = [0]
+    device_ids = [int(config.gpu)]
+
+    if config.gpu is not None:
+        print(f'Use GPU: {gpu} for training')
+
+    if config.distributed:
+        if config.dist_url == "envs://" and config.rank == -1:
+            config.rank = int(os.environ["RANK"])
+        if config.multiprocessing_distributed:
+            config.rank = config.rank * ngpus_per_node + gpu
+        torch.distributed.init_process_group(backend=config.dist_backend, init_method=config.dist_url, world_size=config.world_size, rank=config.rank)
+
 
 
     if config.eval_data == "3D60":
@@ -93,9 +124,16 @@ if __name__ == '__main__':
   
     parser.add_argument("--backbone",
                                  type=str,
-                                 help="data category to be evaluated",
+                                 help="Backbone to be used",
                                  choices=["CSwin", "Swin", "DAT"],
                                  default="CSwin")
+
+    parser.add_argument("--align_type",
+                                 type=str,
+                                 help="align_type for evaluation metric",
+                                 choices=["Column", "Image"],
+                                 default="Image")
+
 
 
     
@@ -131,8 +169,16 @@ if __name__ == '__main__':
             ],
             help='The Pano3D data types that will be loaded, one of [color, depth, normal, semantic, structure, layout], potentially suffixed with a stereo placement from [up, down, left, right].'
         )
-  
+    ############ Distributed Data Parallel (DDP) ############
+    parser.add_argument('--world_size', type=int, default=1)
+    parser.add_argument('--rank', type=int, default=-1)
+    parser.add_argument('--gpu', type=str, default="0,1,2,3")
+    parser.add_argument('--dist-url', type=str, default="tcp://127.0.0.1:7777")
+    parser.add_argument('--dist-backend', type=str, default="nccl")
+    parser.add_argument('--multiprocessing_distributed', default=True)
+    
+
     config = parser.parse_args()
-    evaluate_main(config)
+    main(config)
 
 

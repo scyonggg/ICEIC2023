@@ -1,0 +1,30 @@
+####### CSwin / Structured3D ####
+python3 evaluate_main.py --method enc_dec --backbone CSwin  --eval_data Structure3D --enc_path ../checkpoints/baseline_37/models/encoder-14.pkl --dec_path ../checkpoints/baseline_37/models/decoder-14.pkl --data_path ../../Structure3D/test/ --world_size 1 --rank 0 --gpu 0 
+
+####### Swin / Structured3D ####
+#python3 evaluate_main.py --method enc_dec --backbone CSwin  --eval_data Structured3D --enc_path ../checkpoints/baseline_37/models/enc_latest.pth --dec_path ../checkpoints/baseline_37/models/dec_latest.pth --data_path ../../Structure3D/test/ 
+
+####### DAT / Structured3D ####
+#python3 evaluate_main.py --method enc_dec --backbone DAT  --eval_data Structured3D --enc_path ../checkpoints/baseline_37/models/enc_latest.pth --dec_path ../checkpoints/baseline_37/models/dec_latest.pth --data_path ../../Structure3D/test/ 
+
+
+########################### Joint_Depth ################################
+# Jointdepth / Structured3D
+#python3 evaluate_main.py --method JointDepth  --eval_data Structure3D --data_path ../../Structure3D/test/ --checkpoint_path ./Super_S3D_Fres.pth --multiprocessing_distributed False --gpu 0 --rank 0
+
+############################# HohoNet #########################
+
+# Hohonet / Structured3D
+#python3 evaluate_main_AAAI.py --method Hohonet  --checkpoint_path /hdd/yuniw/Joint_360depth_rebuttal/checkpoints/hohonet_AAAI23_continue/models/generator_latest.pkl --cfg ./previous_works/HoHoNet/config/mp3d_depth/HOHO_depth_dct_efficienthc_TransEn1.yaml  --output_path ./hohonet_stanford   --data_path ../../Structure3D/test/ --eval_data Structure3D --checkpoint_path /hdd/yuniw/Joint_360depth_rebuttal/checkpoints/hohonet_AAAI23/models/generator_latest.pkl   --checkpoint_path /hdd/hklee/yuniw/Reproduce/hohonet_AAAI23/models/generator_latest.pkl --save_sample --output_path ./AAAI23_data/hohonet_S3D
+
+
+
+
+
+
+############################### Bifuse #################################
+
+
+#python3 evaluate_main_AAAI.py --method Bifuse --eval_data 3D60 --data_path ./3D60_split/Stanford3D_test_sample.txt  --checkpoint_path /hdd/yuniw/Joint_360depth_rebuttal/checkpoints/bifuse_ACM2/models/generator-1.pkl   --output_path ./bifuse_stanford2 --save_sample --data_path ../../Structure3D/test/ --eval_data Structure3D --checkpoint_path /hdd/hklee/yuniw/bifuse_AAAI23/models/generator_latest.pkl --save_sample --output_path ./AAAI23_data/bifuse_S3D
+
+

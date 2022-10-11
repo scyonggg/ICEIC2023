@@ -45,11 +45,11 @@ import previous_works.svsyn.utils
 from previous_works.network import *
 
 class BadPixelMetric:
-    def __init__(self, threshold=1.25, depth_cap=10,data_type='None'):
+    def __init__(self, threshold=1.25, depth_cap=10,data_type='None',align_type='Image'):
         self.__threshold = threshold
         self.__depth_cap = depth_cap
         self.data_type = data_type
-
+        self.align_type = align_type
         ##### Column-wise scale-and-shift alignment ####    
 
     # From https://github.com/isl-org/MiDaS
@@ -79,16 +79,24 @@ class BadPixelMetric:
 
     def __call__(self, prediction, target, mask):
 
-        ##### Column-wise scale-and-shift alignment ####    
-        prediction = prediction.squeeze(0)
-        target = target.squeeze(0)
-        mask = mask.squeeze(0)
+        ##### Column/Image-wise scale-and-shift alignment ####    
+        if self.align_type == 'Image':
+            prediction = prediction.squeeze(0)
+            target = target.squeeze(0)
+            mask = mask.squeeze(0)
+        elif self.align_type == 'Column':
+            prediction = prediction
+            target = target
+            mask = mask
+        else:
+            print("align type error")
+ 
 
         scale, shift = self.compute_scale_and_shift(prediction, target, mask)
 
         scale = scale.unsqueeze(0).unsqueeze(0)
         shift = shift.unsqueeze(0).unsqueeze(0)
-
+        
         prediction_aligned = scale * prediction + shift
 
         depth_cap = self.__depth_cap
@@ -277,7 +285,6 @@ class Evaluation(object):
                     end='\r')
 
                 # Parse the data
-#                print(data) 
                 if self.config.eval_data == 'Structure3D':
                     inputs = data[0].float().cuda()
                     gt = data[1].float().cuda()
@@ -526,185 +533,6 @@ class Evaluation(object):
         print('Evaluation finished in {} seconds'.format(time.time() - s))
         self.print_validation_report()
 
-    def evaluate_MD(self):
-
-        print('Evaluating JointDepth')
-        
-        log_path = os.path.join('./','results.log')
-        if os.path.isfile(log_path):
-              os.remove(log_path)
-
-        # Put the model in eval mode
-        self.net = DPTDepthModel(
-                    path=None,
-                    backbone="vitb_rn50_384",
-                    non_negative=True,
-                    enable_attention_hooks=False,
-                        )
-        
-        self.discriminator = DPTVarModel()
-#        self.discriminator = self.net
-        depth_path = '/hdd/hklee/yuniw/Equi_MDDPT114/models/generator_latest.pkl'
-#        depth_path = '/hdd/hklee/yuniw/Equi_MDDPT115/models/generator-3.pkl'
-#        depth_path = '/hdd/yuniw/SelfEqui/checkpoints/Equi_MDDPT91/models/generator_latest.pkl'
-#
-#        depth_path = '/hdd/yuniw/SelfEqui/checkpoints/Equi_MDDPT68/models/generator_latest.pkl'
-#        depth_path = '/hdd/hklee/yuniw/Equi_MDDPT97/models/generator_latest.pkl'
-
-#        var_path = '/hdd/yuniw/SelfEqui/checkpoints/Equi_MDDPT91/models/dis_latest.pkl'
-        var_path = '/hdd/hklee/yuniw/Equi_MDDPT114/models/dis_latest.pkl'
-
-#        depth_path = '/hdd/yuniw/SelfEqui/checkpoints/Equi_MDDPT58/generator_latest.pkl'
-#        var_path = '/hdd/yuniw/SelfEqui/checkpoints/Equi_MDDPT71/models/dis_latest.pkl'
-
-
-        self.net.load_state_dict(torch.load(depth_path))
-        self.net.cuda().eval()
-        
-        self.discriminator.load_state_dict(torch.load(var_path))
-        self.discriminator.cuda().eval()
-
-
-        # Reset meter
-        self.reset_eval_metrics()
-
-        # Load data
-        s = time.time()
-        with torch.no_grad():
-            for batch_num, data in enumerate(self.val_dataloader):
-                print(
-                    'Evaluating {}/{}'.format(batch_num, len(
-                        self.val_dataloader)),
-                    end='\r')
-     
-                if self.config.eval_data == 'Structure3D':
-                    
-                    inputs = data[0].float().cuda()
-                    gt_save = data[1].float().cuda() 
-                    gt = data[1].float().cuda()
-#                    gt = data[1][:,:,128:384,:].float().cuda()
-                    gt = gt / gt.max()
-
-                elif self.config.eval_data == 'Stanford':
-                    inputs = data[0].float().cuda()
-                    inputs = F.interpolate(inputs,scale_factor=0.25)
-#                    gt = data[1].float().cuda() 
-
-                    gt = data[1][:,:,128:384,:].float().cuda() 
- 
-                elif self.config.eval_data == 'Pano3D':
-                    inputs = data['color'].float().cuda()
-#                    gt = data['depth'][:,:,128:384,:].float().cuda()
-
-                    gt = data['depth'].float().cuda()
-
-               
-                elif self.config.eval_data == '3D60':    
-                    inputs, gt, other = self.parse_data(data,model='SelfEqui')
-
-                elif self.config.eval_data == 'Inference':    
-                    inputs = data[0].float().cuda()
-
-
-#                var, pi, MAP, EU, AU, mu = self.net(inputs)
-
-
-                mu,features = self.net(inputs)
-                var_fake, pi, MAP, EU,AU = self.discriminator(inputs,mu,features.detach())
-                output = MAP.unsqueeze(1)
-                
-                if self.config.eval_data =="Inference": 
-                    EU = EU.unsqueeze(1)
-                    AU = AU.unsqueeze(1)
-        
-                if self.config.save_sample: 
-
-                    disp_pp = output[:,:,128:384,:]
-                    disp_EU = EU[:,:,128:384,:]
-                    disp_AU = AU[:,:,128:384,:]
-#                    disp_gt = gt
-
-#                    depth_mask = (gt>0.01).float().cuda()
-                    max_value = torch.tensor([0.000005]).cuda()
- 
- #                   disp_gt =1. / torch.max(disp_gt,max_value)
-#
-#                    disp_gt = self.post_process_disparity(disp_gt) 
-#                    disp_gt = disp_gt.squeeze()
-
-#                    vmax = np.percentile(disp_gt, 95)
-#                    normalizer = mpl.colors.Normalize(vmin=disp_gt.min(), vmax=vmax)
-#                    mapper = cm.ScalarMappable(norm=normalizer, cmap='magma')
-#                    disp_gt = (mapper.to_rgba(disp_gt)[:, :, :3] * 255).astype(np.uint8)
-
-########################################################
-                    disp_pp =1. / torch.max(disp_pp,max_value)
-
-                    disp_pp = self.post_process_disparity(disp_pp) 
-                    disp_pp = disp_pp.squeeze()
-
-                    vmax = np.percentile(disp_pp, 95)
-                    normalizer = mpl.colors.Normalize(vmin=disp_pp.min(), vmax=vmax)
-                    mapper = cm.ScalarMappable(norm=normalizer, cmap='magma')
-                    disp_pp = (mapper.to_rgba(disp_pp)[:, :, :3] * 255).astype(np.uint8)
-
- #                   disp_pp = disp_pp*depth_mask
-
-#                    disp_EU =1. / torch.max(disp_EU,max_value)
-
-                    disp_EU = self.post_process_disparity(disp_EU) 
-                    disp_EU = disp_EU.squeeze()
-
-                    vmax = np.percentile(disp_EU, 95)
-                    normalizer = mpl.colors.Normalize(vmin=disp_pp.min(), vmax=vmax)
-                    mapper = cm.ScalarMappable(norm=normalizer, cmap='magma')
-                    disp_EU = (mapper.to_rgba(disp_EU)[:, :, :3] * 255).astype(np.uint8)
-
-#                    disp_AU =1. / torch.max(disp_AU,max_value)
-
-                    disp_AU = self.post_process_disparity(disp_AU) 
-                    disp_AU = disp_AU.squeeze()
-
-                    vmax = np.percentile(disp_AU, 95)
-                    normalizer = mpl.colors.Normalize(vmin=disp_pp.min(), vmax=vmax)
-                    mapper = cm.ScalarMappable(norm=normalizer, cmap='magma')
-                    disp_AU = (mapper.to_rgba(disp_AU)[:, :, :3] * 255).astype(np.uint8)
-                  
-                    save_name = str(batch_num) + '.png'
-                    save_name_EU = str(batch_num) + '_EU.png'
-                    save_name_AU = str(batch_num) + '_AU.png'
-                    save_name_in = str(batch_num) + '_input.png'
-                    save_name_gt = str(batch_num) + '_gt.png'
-
-#                    inputs = inputs[:,:,128:384,:]
-#                    input = *inputs
-
-                    plt.imsave(os.path.join(self.config.output_path,save_name), disp_pp, cmap='magma')
-                    plt.imsave(os.path.join(self.config.output_path+"_EU",save_name_EU), disp_EU, cmap='magma')
-                    plt.imsave(os.path.join(self.config.output_path+"_AU",save_name_AU), disp_AU, cmap='magma')
-#                    plt.imsave(os.path.join(self.config.output_path,save_name_gt), disp_gt, cmap='magma')
-
-#                    torchvision.utils.save_image(inputs[0].data,os.path.join(self.config.output_path,save_name_in))                
-
-                if not self.config.pre_crop:
-#                    output = output[:,:,128:384,:]
-#                    if False:
-                    if self.config.eval_data == 'Stanford':
-                        output = output[:,:,128:384,:]
-                        EU = EU[:,128:384,:]
-                        AU = AU[:,128:384,:]
-
-
-                if False:
-                    self.compute_eval_metrics(output, gt,do_log=True,EU=EU,AU=AU)
-
-
-        # Print a report on the validation results
-
-        print('Evaluation finished in {} seconds'.format(time.time() - s))
-        self.print_validation_report()
-
-
     def evaluate_jointdepth(self):
 
         print('Evaluating JointDepth')
@@ -780,7 +608,7 @@ class Evaluation(object):
                 if self.config.eval_data == 'Stanford':
                     output = output[:,:,128:384,:]
 
-                if False:
+                if True:
                     self.compute_eval_metrics(output, gt)
 
         # Print a report on the validation results
@@ -792,24 +620,32 @@ class Evaluation(object):
         print('Evaluating Backbone')
 
         # Put the model in eval mode
-
+        
+        self.use_hybrid = False
+        torch.cuda.set_device(0)
+        self.gpu = int(self.config.gpu) 
+        
         if self.config.backbone == 'CSwin':
             self.encoder = CSWinDepthModel(split_size=[4,4,8,8], num_heads=[8,16,32,32], hybrid=self.use_hybrid)
        
-        elif self.config.backbone == 'DAT'
+        elif self.config.backbone == 'DAT':
             self.encoder = DAT(hybrid=self.use_hybrid)
         
-        elif self.config.backbone == 'Swin'
+        elif self.config.backbone == 'Swin':
             self.encoder = DAT(strides=[-1,-1,-1,-1], offset_range_factor=[-1, -1, -1, -1], 
                  stage_spec = [['L', 'S'], ['L', 'S'], ['L', 'S', 'L', 'S', 'L', 'S', 'L', 'S', 'L', 'S', 'L', 'S', 'L', 'S', 'L', 'S', 'L', 'S'], ['L', 'S']], groups=[-1, -1, -1,-1], hybrid=self.use_hybrid)
  
         self.decoder = Conv_Decoder() 
 
+        self.encoder.cuda(self.gpu)
+        self.encoder = torch.nn.parallel.DistributedDataParallel(self.encoder, device_ids=[self.gpu], find_unused_parameters=True)
+        self.decoder.cuda(self.gpu)
+        self.decoder = torch.nn.parallel.DistributedDataParallel(self.decoder, device_ids=[self.gpu], find_unused_parameters=True)
 
         self.encoder.load_state_dict(torch.load(self.config.enc_path),strict=True)
-        self.encoder.cuda().eval()
+        self.encoder.eval()
         self.decoder.load_state_dict(torch.load(self.config.dec_path),strict=True)
-        self.decoder.cuda().eval()
+        self.decoder.eval()
 
 
         # Reset meter
@@ -848,12 +684,16 @@ class Evaluation(object):
                 elif self.config.eval_data == 'Inference':    
                     inputs = data[0].float().cuda()
 
-               
-                features = self.encoder(inputs).unsqueeze(0)
-                depth = self.decoder(features)
+                if self.config.backbone == 'CSwin':               
+                    features = self.encoder(inputs)
+                else:
+                    features,_,_ = self.encoder(inputs)
+
+
+                output = self.decoder(features)
 
                 if self.config.save_sample: 
-                    disp_pp = output[:,:,128:384,:]
+                    disp_pp = output
                     max_value = torch.tensor([0.000005]).cuda()
                     
                     disp_pp =1. / torch.max(disp_pp,max_value)
@@ -873,7 +713,7 @@ class Evaluation(object):
                 if self.config.eval_data == 'Stanford':
                     output = output[:,:,128:384,:]
 
-                if False:
+                if True:
                     self.compute_eval_metrics(output, gt)
 
         # Print a report on the validation results
@@ -943,7 +783,7 @@ class Evaluation(object):
 
       
        
-        Bmetric = BadPixelMetric(depth_cap=100,data_type=self.config.eval_data)
+        Bmetric = BadPixelMetric(depth_cap=100,data_type=self.config.eval_data,align_type = self.config.align_type)
         Bloss = Bmetric(depth_pred,gt_depth,depth_mask)
         
         N = depth_mask.sum()
