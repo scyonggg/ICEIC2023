@@ -1,18 +1,20 @@
 #Training 360 former
 python3 main.py \
---S3D_path /mnt/prj/360depth/datasets/Structured3D/Structured3D \
---model_name ./checkpoints \
---batch_size 2 \
+--S3D_path ../Structure3D/Structured3D \
+--model_name ./checkpoints/baseline_37 \
+--batch_size 1 \
 --val_path ./SelfEqui_testset_full/ \
 --num_epochs 50 \
 --lr 1e-5 \
 --eval_crop_ratio 12 \
 --S3D \
---enc_path /mnt/prj/users/depth/Yun_checkpoints/encoder-6.pkl \
---dec_path /mnt/prj/users/depth/Shin_checkpoints/dpt_large-midas-2f21e586.pt \
---Pretrained \
+--enc_path ./checkpoints/baseline_37/models/encoder-8.pkl \
+--dec_path ./checkpoints/baseline_37/models/decoder-9.pkl \
 --world_size 1 \
 --rank 0 \
---dist-url tcp://127.0.0.1:9993 \
---gpu 3
+--gpu 0 \
+--backbone CSwin \
+--Continue 
+
+#--dist-url tcp://127.0.0.1:9993 \
 #--Continue \
