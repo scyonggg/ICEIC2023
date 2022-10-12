@@ -56,7 +56,7 @@ RMSE: 0.0231
 
 ~~~
 # Experimental results
-The person in charge (PIC) of each experiments ID should upload the pretrained model in the shared folder of INHA server (```\mnt/prj/users/depth/360former_experiments```) to make it reproducible.
+The person in charge (PIC) of each experiments ID should upload the pretrained model in the shared folder of INHA server (```\mnt/prj/users/depth/360former_experiments```) to make it reproducible. Put :white_check_mark: if all things are done , else put 🔲:
 
 ##  Table 1 
 Structure3D training / **Image-align based evaluation**
@@ -65,8 +65,8 @@ Structure3D training / **Image-align based evaluation**
 |----|---------------------|--------------------|----------------|--------------------------|-----------------|------|------|----------------|-----------|
 |1| Joint_depth     | ViT |   Super_S3D_Fres.pth |[a01617b](https://github.com/yuniw18/Joint_360depth/commit/a01617bc9f0579ae70c108074ce6030d3785c1ab)| 0.0368    | 0.0022     | 0.0268 |0.9825|:white_check_mark: Yun|
 |2| Joint_depth     | ViT |   Joint_S3D_Fres.pth |[a01617b](https://github.com/yuniw18/Joint_360depth/commit/a01617bc9f0579ae70c108074ce6030d3785c1ab)| 0.0415    | 0.0026     | 0.0291 |0.9809|:white_check_mark: Yun|
-|3| Bifuse     | - |  gen_latest.pkl  |[6fb1cbe](https://github.com/Yeh-yu-hsuan/BiFuse/commit/6fb1cbe8a3c3891a9067f595ba2af9d14f8ae1c6)| 0.0571 |  0.0048    | 0.0386 |0.1315|:white_check_mark: Yun|
-|4| HohoNet     | - |  gen_latest.pkl | |0.0789|  0.0081 |  0.0473 | 0.1504 |:white_check_mark:Yun|
+|3| Bifuse     | - |  gen_latest.pkl  |[6fb1cbe](https://github.com/Yeh-yu-hsuan/BiFuse/commit/6fb1cbe8a3c3891a9067f595ba2af9d14f8ae1c6)| 0.0571 |  0.0048    | 0.0386 |0.9666|:white_check_mark: Yun|
+|4| HohoNet     | - |  gen_latest.pkl |[5ad7f48](github.com/sunset1995/HoHoNet/commit/5ad7f486a26b13834abee61527ad2aaa98ff6fbe) |0.0789|  0.0081 |  0.0473 | 0.9411 |:white_check_mark:Yun|
 |5| Baseline | CSwin |  epoch_15   | [c0db391](https://github.com/yuniw18/360former_project/tree/c0db391e10722ebc850ce247a43a683d4c6a5e18) |0.1578 | 0.0150  | 0.0723   | 0.8073|:white_check_mark: Yun|
 
 ##  Table 2 
@@ -77,7 +77,7 @@ Structure3D training / **Column-align based evaluation**
 |1| Joint_depth     | ViT |   Super_S3D_Fres.pth |[a01617b](https://github.com/yuniw18/Joint_360depth/commit/a01617bc9f0579ae70c108074ce6030d3785c1ab)| 0.0265    | 0.0015     | 0.0201 |0.9886|:white_check_mark: Yun|
 |2| Joint_depth     | ViT |   Joint_S3D_Fres.pth |[a01617b](https://github.com/yuniw18/Joint_360depth/commit/a01617bc9f0579ae70c108074ce6030d3785c1ab)| 0.0310    | 0.0017     | 0.0291 |0.9809|:white_check_mark: Yun|
 |3| Bifuse     | - |  gen_latest.pkl  |[6fb1cbe](https://github.com/Yeh-yu-hsuan/BiFuse/commit/6fb1cbe8a3c3891a9067f595ba2af9d14f8ae1c6)| TBU |  TBU    | TBU |TBU|:black_square_button:  Yun|
-|4| HohoNet     | - |  gen_latest.pkl | |TBU|  TBU | TBU | TBU |:black_square_button: Yun|
+|4| HohoNet     | - |  gen_latest.pkl | [5ad7f48](github.com/sunset1995/HoHoNet/commit/5ad7f486a26b13834abee61527ad2aaa98ff6fbe) |TBU|  TBU | TBU | TBU |:black_square_button: Yun|
 |5| Baseline | CSwin |  epoch_16   | [c0db391](https://github.com/yuniw18/360former_project/tree/c0db391e10722ebc850ce247a43a683d4c6a5e18) | 0.0341| 0.0025  | 0.0256  | 0.9806|:white_check_mark: Yun|
 
 
