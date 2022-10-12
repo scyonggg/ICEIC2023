@@ -292,7 +292,7 @@ class CSWinTransformer(nn.Module):
 
         self.patch_proj = self.hybrid_patch_embedding()
 
-        self.stage1_conv_embed2= nn.Sequential(
+        self.stage1_conv_embed= nn.Sequential(
             self.patch_proj,
             Rearrange('b c h w -> b (h w) c', h = img_size[0]//4, w = img_size[1]//4),
             nn.LayerNorm(embed_dim)
@@ -301,11 +301,6 @@ class CSWinTransformer(nn.Module):
             Rearrange('b c h w -> b (h w) c', h = img_size[0]//4, w = img_size[1]//4),
             nn.LayerNorm(embed_dim)
         )
-
-        self.stage1_conv =  nn.Conv2d(in_chans, embed_dim // 4, 7, 2, 3)
-        self.rearrange = nn.Sequential(Rearrange('b c h w -> b (h w) c', h = img_size[0]//4, w = img_size[1]//4),
-            nn.LayerNorm(embed_dim))
- 
 
 
         curr_dim = embed_dim
@@ -413,10 +408,7 @@ class CSWinTransformer(nn.Module):
     def forward_features(self, x):
         features = []
         B = x.shape[0]
-#        x = self.stage1_conv_embed(x)
-        x = self.stage1_conv(x)
-        x = PixelUnshuffle.pixel_unshuffle(x,2)
-        x = self.rearrange(x)
+        x = self.stage1_conv_embed(x)
 
         for blk in self.stage1:
             if self.use_chk:
