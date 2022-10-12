@@ -1,11 +1,8 @@
 # Evaluation
 
-#### 1) Download pre-trained models
-* Pre-trained Bifuse model : will be uploaded.
-* Pre-trained Hohonet model : will be uploaded
-* Pre-trained Joint_360depth model : Refer to [Joint_360depth](https://github.com/yuniw18/Joint_360depth)
 
-#### 2) Prepare the test dataset (Currently, Structured3D dataset is only tested.)
+
+#### 1) Prepare the test dataset (Currently, Structured3D dataset is only tested.)
 
 * [Structure3D](https://github.com/bertjiazheng/Structured3D) : **test split scene # 03250 ~ 03499**.
 
@@ -35,7 +32,7 @@
        
 ``` 
 
-#### 3) Go to evaluate folder & run the `eval_script`
+#### 2) Go to evaluate folder & run the `eval_script`
 For detailed command options, please refer to `evaluate_main.py` and **`eval_script`**.
 
 ~~~bash
