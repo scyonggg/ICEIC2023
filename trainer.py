@@ -223,10 +223,9 @@ class Train(object):
         max_batch_num = len(self.s3d_loader) - 1
 
 ############################# Evaluation code ##########################
-        if torch.distributed.get_rank() == 0:
-            with torch.no_grad(): 
-                eval_name = '3d60_%d' %(0)
-                self.sample(self.eval_data_path,'test',eval_name,self.crop_ratio)
+        with torch.no_grad(): 
+            eval_name = '3d60_%d' %(0)
+            self.sample(self.eval_data_path,'test',eval_name,self.crop_ratio)
 ########################################################################
 
         for epoch in range(self.num_epochs):
@@ -277,11 +276,11 @@ class Train(object):
                         torch.save(self.encoder.state_dict(),e_path_latest)
                         torch.save(self.conv_decoder.state_dict(),d_path_latest)
                     
-                        eval_name = '3d60_%d' %(epoch)
+                    torch.distributed.barrier()
+                    eval_name = '3d60_%d' %(epoch)
 
- 
-                        with torch.no_grad():
-                            self.sample(self.eval_data_path,g_path,eval_name,self.crop_ratio)
+                    with torch.no_grad():
+                        self.sample(self.eval_data_path,g_path,eval_name,self.crop_ratio)
 
             if torch.distributed.get_rank() == 0:
                 e_path = os.path.join(self.model_path,'encoder-%d.pkl' % (epoch))
@@ -289,7 +288,8 @@ class Train(object):
                          
                 torch.save(self.encoder.state_dict(),e_path)
                 torch.save(self.conv_decoder.state_dict(),d_path)
-            
+            torch.distributed.barrier()
+           
             with torch.no_grad():
                 self.lr_scheduler.step()
                 eval_name = '3d60_%d' %(epoch)
