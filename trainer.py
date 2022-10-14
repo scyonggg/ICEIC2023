@@ -223,9 +223,10 @@ class Train(object):
         max_batch_num = len(self.s3d_loader) - 1
 
 ############################# Evaluation code ##########################
-        with torch.no_grad(): 
-            eval_name = '3d60_%d' %(0)
-            self.sample(self.eval_data_path,'test',eval_name,self.crop_ratio)
+        if torch.distributed.get_rank() == 0:
+            with torch.no_grad(): 
+                eval_name = '3d60_%d' %(0)
+                self.sample(self.eval_data_path,'test',eval_name,self.crop_ratio)
 ########################################################################
 
         for epoch in range(self.num_epochs):
@@ -260,9 +261,10 @@ class Train(object):
 
 
                 if (batch_num) % self.log_step == 0:
-                    print('Epoch [%d/%d], Step[%d/%d], image_loss: %.5f,dis_loss: %.7f' 
-                          %(epoch, self.num_epochs, batch_num, max_batch_num, 
-                            gen_loss.item(), gen_loss.item()))
+                    if torch.distributed.get_rank() == 0:
+                        print('Epoch [%d/%d], Step[%d/%d], image_loss: %.5f,dis_loss: %.7f' 
+                              %(epoch, self.num_epochs, batch_num, max_batch_num, 
+                                gen_loss.item(), gen_loss.item()))
                     
                 if (batch_num) % self.sample_step == 0:
                     g_path = os.path.join(self.model_path,'generator-%d.pkl' % (epoch ))
@@ -271,27 +273,28 @@ class Train(object):
                     e_path_latest = os.path.join(self.model_path,'encoder_latest.pkl')
                     d_path_latest = os.path.join(self.model_path,'decoder_latest.pkl')
 
-
-                    torch.save(self.encoder.state_dict(),e_path_latest)
-                    torch.save(self.conv_decoder.state_dict(),d_path_latest)
+                    if torch.distributed.get_rank() == 0:
+                        torch.save(self.encoder.state_dict(),e_path_latest)
+                        torch.save(self.conv_decoder.state_dict(),d_path_latest)
                     
-                    eval_name = '3d60_%d' %(epoch)
+                        eval_name = '3d60_%d' %(epoch)
 
  
-                    with torch.no_grad():
-                        self.sample(self.eval_data_path,g_path,eval_name,self.crop_ratio)
+                        with torch.no_grad():
+                            self.sample(self.eval_data_path,g_path,eval_name,self.crop_ratio)
 
-            
-            e_path = os.path.join(self.model_path,'encoder-%d.pkl' % (epoch))
-            d_path =  os.path.join(self.model_path,'decoder-%d.pkl' % (epoch ))
+            if torch.distributed.get_rank() == 0:
+                e_path = os.path.join(self.model_path,'encoder-%d.pkl' % (epoch))
+                d_path =  os.path.join(self.model_path,'decoder-%d.pkl' % (epoch ))
                          
-            torch.save(self.encoder.state_dict(),e_path)
-            torch.save(self.conv_decoder.state_dict(),d_path)
+                torch.save(self.encoder.state_dict(),e_path)
+                torch.save(self.conv_decoder.state_dict(),d_path)
             
             with torch.no_grad():
                 self.lr_scheduler.step()
                 eval_name = '3d60_%d' %(epoch)
                 self.sample(self.eval_data_path,g_path,eval_name,self.crop_ratio)
+
     def post_process_disparity(self,disp):
         
         disp = disp.cpu().detach().numpy() 
