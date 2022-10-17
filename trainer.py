@@ -5,6 +5,7 @@ import torch.nn.functional as F
 from torchvision import transforms
 import os
 from PIL import Image
+from DPT.dpt.models import ICEIC_DPTDepthModel
 import numpy as np
 import torch.nn as nn
 import scipy.misc
@@ -95,7 +96,8 @@ class Train(object):
         elif self.backbone == 'Swin':
             self.encoder = DAT(strides=[-1,-1,-1,-1], offset_range_factor=[-1, -1, -1, -1], 
                  stage_spec = [['L', 'S'], ['L', 'S'], ['L', 'S', 'L', 'S', 'L', 'S', 'L', 'S', 'L', 'S', 'L', 'S', 'L', 'S', 'L', 'S', 'L', 'S'], ['L', 'S']], groups=[-1, -1, -1,-1], hybrid=self.use_hybrid)
-        
+        elif self.backbone == 'ICEIC':
+            self.encoder = ICEIC_DPTDepthModel()
         else:
             print("Error")
 
