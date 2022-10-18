@@ -20,7 +20,7 @@ from einops.layers.torch import Rearrange
 import torch.utils.checkpoint as checkpoint
 import numpy as np
 import time
-import PixelUnshuffle
+
 def _cfg(url='', **kwargs):
     return {
         'url': url,
