@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from NLNN.non_local_embedded_gaussian import NONLocalBlock2D
+
 from .base_model import BaseModel
 from .blocks import (
     FeatureFusionBlock,
@@ -27,9 +27,8 @@ class DPT(BaseModel):
     def __init__(
         self,
         head,
-        backbone,
+        backbone="vitb_rn50_384",
         features=256,
-        # backbone="vitb_rn50_384",
         readout="project",
         channels_last=False,
         use_bn=False,
@@ -45,6 +44,7 @@ class DPT(BaseModel):
             "vitb16_384": [2, 5, 8, 11],
             "vitl16_384": [5, 11, 17, 23],
         }
+
         # Instantiate backbone and reassemble blocks
         self.pretrained, self.scratch = _make_encoder(
             backbone,
@@ -63,12 +63,15 @@ class DPT(BaseModel):
         self.scratch.refinenet3 = _make_fusion_block(features, use_bn)
         self.scratch.refinenet4 = _make_fusion_block(features, use_bn)
 
-        self.nl_1 = NONLocalBlock2D(in_channels=features)
-        self.nl_2 = NONLocalBlock2D(in_channels=features)
-        self.nl_3 = NONLocalBlock2D(in_channels=features)
-        self.nl_4 = NONLocalBlock2D(in_channels=features)
- 
         self.scratch.output_conv = head
+        self.reset_parameters()
+
+    def reset_parameters(self):
+
+        for m in self.parameters():
+            if isinstance(m, (nn.Linear, nn.Conv2d)):
+                nn.init.kaiming_normal_(m.weight)
+                nn.init.zeros_(m.bias)
 
     def forward(self, x):
         if self.channels_last == True:
@@ -81,36 +84,24 @@ class DPT(BaseModel):
         layer_3_rn = self.scratch.layer3_rn(layer_3)
         layer_4_rn = self.scratch.layer4_rn(layer_4)
 
-        layer_4_rn = self.nl_4(layer_4_rn)
         path_4 = self.scratch.refinenet4(layer_4_rn)
-
-        path_4 = self.nl_3(path_4)
         path_3 = self.scratch.refinenet3(path_4, layer_3_rn)
-
-
-        path_3 = self.nl_2(path_3)
         path_2 = self.scratch.refinenet2(path_3, layer_2_rn)
-
-
-        path_2 = self.nl_1(path_2)
         path_1 = self.scratch.refinenet1(path_2, layer_1_rn)
 
         out = self.scratch.output_conv(path_1)
-
         return out
-
 
 
 class DPTDepthModel(DPT):
     def __init__(
-        self, path=None, non_negative=True, scale=1.0, shift=0.00001, invert=True, backbone='vitb_rn50_384', **kwargs
+        self, path=None, non_negative=True, scale=1.0, shift=0.00001, invert=False, **kwargs
     ):
         features = kwargs["features"] if "features" in kwargs else 256
 
         self.scale = scale
         self.shift = shift
         self.invert = invert
-        self.backbone = backbone
 
         head = nn.Sequential(
             nn.Conv2d(features, features // 2, kernel_size=3, stride=1, padding=1),
@@ -122,26 +113,29 @@ class DPTDepthModel(DPT):
             nn.Identity(),
         )
 
-        super().__init__(head, self.backbone, **kwargs)
-
+        super().__init__(head, **kwargs)
 
         if path is not None:
             self.load(path)
 
+        self.reset_parameters()
+
+    def reset_parameters(self):
+
+        for m in self.parameters():
+            if isinstance(m, (nn.Linear, nn.Conv2d)):
+                nn.init.kaiming_normal_(m.weight)
+                nn.init.zeros_(m.bias)
+
     def forward(self, x):
-        inv_depth = super().forward(x).squeeze(dim=1)
+        inv_depth = super().forward(x)
+
         if self.invert:
             depth = self.scale * inv_depth + self.shift
             depth[depth < 1e-8] = 1e-8
             depth = 1.0 / depth
-            depth[depth>1] = 1
-
             return depth
-
         else:
-            
-            inv_depth = 0.000001 + inv_depth
-            
             return inv_depth
 
 class ICEIC_DPTDepthModel(DPT):
@@ -167,19 +161,28 @@ class ICEIC_DPTDepthModel(DPT):
 
         super().__init__(head, self.backbone, **kwargs)
 
-        self.pretrained.model.patch_embed = Top_conv(split_H = 64)
+        self.pretrained.model.patch_embed = Top_conv(split_H = 64, dim_stem=1024, dim=1024)
 
         if path is not None:
             self.load(path)
 
+        self.reset_parameters()
+
+    def reset_parameters(self):
+
+        for m in self.parameters():
+            if isinstance(m, (nn.Linear, nn.Conv2d)):
+                nn.init.kaiming_normal_(m.weight)
+                nn.init.zeros_(m.bias)
+
+
     def forward(self, x):
-        inv_depth = super().forward(x).squeeze(dim=1)
+        inv_depth = super().forward(x)
         if self.invert:
             depth = self.scale * inv_depth + self.shift
             depth[depth < 1e-8] = 1e-8
             depth = 1.0 / depth
             depth[depth>1] = 1
-
             return depth
 
         else:
@@ -190,14 +193,15 @@ class ICEIC_DPTDepthModel(DPT):
 
 
 class Top_conv(nn.Module):
-    def __init__(self, split_H):
+    def __init__(self, split_H, dim_stem=256, dim=1024):
         super().__init__()
         
         self.split_H = split_H
 
-        self.TopConv = nn.Conv2d(3, 768, 32, 16, 8)
-        self.MidConv = nn.Conv2d(3, 768, 16, 16)
-        self.BotConv = nn.Conv2d(3, 768, 32, 16, 8)
+        self.TopConv = nn.Conv2d(3, dim_stem, 32, 16, 8)
+        self.MidConv = nn.Conv2d(3, dim_stem, 16, 16)
+        self.BotConv = nn.Conv2d(3, dim_stem, 32, 16, 8)
+        # self.Conv1 = nn.Conv2d(dim_stem, dim, 3, 1, 1)
 
     def forward(self, x: torch.tensor):
         img_h = x.shape[2]
@@ -209,4 +213,5 @@ class Top_conv(nn.Module):
         MidImg = self.TopConv(mid_img) # B, 3, 384, 1024 -> B, 1024, 24, 64
         BotImg = self.TopConv(bot_img) # B, 3, 64, 1024  -> B, 1024, 4, 64
         img = torch.cat([TopImg, MidImg, BotImg], dim=2) # B, 1024, 32, 64
+        # img = self.Conv1(img)
         return img

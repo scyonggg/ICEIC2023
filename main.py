@@ -7,14 +7,23 @@ from torch.utils.data import ConcatDataset
 from data_load import EQUI_loader, S3D_loader
 from torchvision import transforms
 import torch
+import numpy as np
+import random
+
 def main(config):
     os.environ['CUDA_VISIBLE_DEVICES'] = config.gpu
-    cudnn.benchmark = True
+    cudnn.benchmark = False
 #    torch.manual_seed(1593665876)
 #    torch.cuda.manual_seed_all(4099049913103886)    
+    random_seed = 22221327
 
-    torch.manual_seed(159111236)
-    torch.cuda.manual_seed_all(4099049123103886)    
+    random.seed(random_seed)
+    np.random.seed(random_seed)
+    # torch.manual_seed(159111236)
+    torch.manual_seed(random_seed)
+    # torch.cuda.manual_seed_all(4099049123103886)    
+    torch.cuda.manual_seed(random_seed)    
+    torch.cuda.manual_seed_all(random_seed)    
 #    torch.manual_seed(159111235)
 #    torch.cuda.manual_seed_all(4099049123103885)    
 
@@ -104,7 +113,7 @@ if __name__ == '__main__':
     parser.add_argument("--backbone",
                                  type=str,
                                  help="backbone to be used",
-                                 choices=["Swin", "DAT", "CSwin"],
+                                 choices=["Swin", "DAT", "CSwin", "ICEIC", "DPT"],
                                  default="Cswin")
  
     parser.add_argument('--model_name',help='path where models are to be saved' , type=str, default='./checkpoints/default') 
@@ -131,7 +140,7 @@ if __name__ == '__main__':
     config = parser.parse_args()
     
     if not os.path.exists(config.model_name):
-        os.mkdir(config.model_name)
+        os.makedirs(config.model_name, exist_ok=True)
     config_path = os.path.join(config.model_name,'config.txt')
     f = open(config_path,'w')
     print(config,file=f)

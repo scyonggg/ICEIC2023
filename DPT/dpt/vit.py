@@ -103,7 +103,6 @@ class Transpose(nn.Module):
 
 def forward_vit(pretrained, x):
     b, c, h, w = x.shape
-
     glob = pretrained.model.forward_flex(x)
 
     layer_1 = pretrained.activations["1"]
