@@ -69,15 +69,15 @@ class Train(object):
         self.models = {}
 
         if not os.path.exists(self.model_name):
-            os.mkdir(self.model_name)
+            os.makedirs(self.model_name, exist_ok=True)
         if not os.path.exists(self.model_path):
-            os.mkdir(self.model_path)
+            os.makedirs(self.model_path, exist_ok=True)
         if not os.path.exists(self.sample_path):
-            os.mkdir(self.sample_path)
+            os.makedirs(self.sample_path, exist_ok=True)
         if not os.path.exists(self.eval_path):
-            os.mkdir(self.eval_path)
+            os.makedirs(self.eval_path, exist_ok=True)
         if not os.path.exists(self.test_path):
-            os.mkdir(self.test_path)
+            os.makedirs(self.test_path, exist_ok=True)
 
         self.num_samples = 5000
         # DDP settings
