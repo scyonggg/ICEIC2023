@@ -149,9 +149,7 @@ def _resize_pos_embed(self, posemb, gs_h, gs_w):
         posemb[:, : self.start_index],
         posemb[0, self.start_index :],
     )
-
     gs_old = int(math.sqrt(len(posemb_grid)))
-
     posemb_grid = posemb_grid.reshape(1, gs_old, gs_old, -1).permute(0, 3, 1, 2)
     posemb_grid = F.interpolate(posemb_grid, size=(gs_h, gs_w), mode="bilinear")
     posemb_grid = posemb_grid.permute(0, 2, 3, 1).reshape(1, gs_h * gs_w, -1)
@@ -163,11 +161,9 @@ def _resize_pos_embed(self, posemb, gs_h, gs_w):
 
 def forward_flex(self, x):
     b, c, h, w = x.shape
-
     pos_embed = self._resize_pos_embed(
         self.pos_embed, h // self.patch_size[1], w // self.patch_size[0]
     )
-
     B = x.shape[0]
 
     if hasattr(self.patch_embed, "backbone"):
@@ -179,7 +175,6 @@ def forward_flex(self, x):
         x = self.patch_embed.proj(x).flatten(2).transpose(1, 2) # DPTDepthModel
     except:
         x = self.patch_embed(x).flatten(2).transpose(1, 2)  # ICEIC_DPTDepthModel
-
     if getattr(self, "dist_token", None) is not None:
         cls_tokens = self.cls_token.expand(
             B, -1, -1
@@ -191,7 +186,6 @@ def forward_flex(self, x):
             B, -1, -1
         )  # stole cls_tokens impl from Phil Wang, thanks
         x = torch.cat((cls_tokens, x), dim=1)
-
     x = x + pos_embed
     x = self.pos_drop(x)
 
@@ -223,7 +217,8 @@ def get_readout_oper(vit_features, features, use_readout, start_index=1):
 def _make_vit_b16_backbone(
     model,
     features=[96, 192, 384, 768],
-    size=[384, 384],
+    # size=[384, 384],
+    size=[504, 1024],
     hooks=[2, 5, 8, 11],
     vit_features=768,
     use_readout="ignore",
@@ -261,7 +256,9 @@ def _make_vit_b16_backbone(
     pretrained.act_postprocess1 = nn.Sequential(
         readout_oper[0],
         Transpose(1, 2),
-        nn.Unflatten(2, torch.Size([size[0] // 16, size[1] // 16])),
+        # nn.Unflatten(2, torch.Size([size[0] // 16, size[1] // 16])),
+        # nn.Unflatten(2, torch.Size([size[0] // 16, size[1] // 18])),
+        nn.Unflatten(2, torch.Size([size[0] // 18, size[1] // 16])),
         nn.Conv2d(
             in_channels=vit_features,
             out_channels=features[0],
@@ -284,7 +281,9 @@ def _make_vit_b16_backbone(
     pretrained.act_postprocess2 = nn.Sequential(
         readout_oper[1],
         Transpose(1, 2),
-        nn.Unflatten(2, torch.Size([size[0] // 16, size[1] // 16])),
+        # nn.Unflatten(2, torch.Size([size[0] // 16, size[1] // 16])),
+        # nn.Unflatten(2, torch.Size([size[0] // 16, size[1] // 18])),
+        nn.Unflatten(2, torch.Size([size[0] // 18, size[1] // 16])),
         nn.Conv2d(
             in_channels=vit_features,
             out_channels=features[1],
@@ -307,7 +306,9 @@ def _make_vit_b16_backbone(
     pretrained.act_postprocess3 = nn.Sequential(
         readout_oper[2],
         Transpose(1, 2),
-        nn.Unflatten(2, torch.Size([size[0] // 16, size[1] // 16])),
+        # nn.Unflatten(2, torch.Size([size[0] // 16, size[1] // 16])),
+        # nn.Unflatten(2, torch.Size([size[0] // 16, size[1] // 18])),
+        nn.Unflatten(2, torch.Size([size[0] // 18, size[1] // 16])),
         nn.Conv2d(
             in_channels=vit_features,
             out_channels=features[2],
@@ -320,7 +321,9 @@ def _make_vit_b16_backbone(
     pretrained.act_postprocess4 = nn.Sequential(
         readout_oper[3],
         Transpose(1, 2),
-        nn.Unflatten(2, torch.Size([size[0] // 16, size[1] // 16])),
+        # nn.Unflatten(2, torch.Size([size[0] // 16, size[1] // 16])),
+        # nn.Unflatten(2, torch.Size([size[0] // 16, size[1] // 18])),
+        nn.Unflatten(2, torch.Size([size[0] // 18, size[1] // 16])),
         nn.Conv2d(
             in_channels=vit_features,
             out_channels=features[3],
@@ -338,7 +341,7 @@ def _make_vit_b16_backbone(
     )
 
     pretrained.model.start_index = start_index
-    pretrained.model.patch_size = [16, 16]
+    pretrained.model.patch_size = [16, 18]
 
     # We inject this function into the VisionTransformer instances so that
     # we can use it with interpolated position embeddings without modifying the library source.

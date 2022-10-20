@@ -13,6 +13,7 @@ import torchvision.transforms.functional as F
 from imageio import imread
 import numpy as np
 from skimage import io
+from skimage.transform import resize
 import OpenEXR, Imath, array
 import math
 import os.path as osp
@@ -116,6 +117,7 @@ class S3D_loader(data.Dataset):
                 
             image = Image.open(image_path).convert('RGB')
             depth = io.imread(depth_path,as_gray=True).astype(np.float)
+            depth = resize(depth, (448, 1024), anti_aliasing=True)
             # semantic = self.load_semantic(semantic_path)
             # semantic_rgb = Image.open(semantic_path).convert('RGB')
 

@@ -1,9 +1,11 @@
 #Training 360 former
 python3 main.py \
 --S3D_path /mnt/prj/360depth/datasets/Structured3D/Structured3D \
---model_name ./checkpoints/$(date +"%y_%m_%d")/DPT_ICEIC \
+--model_name ./checkpoints/$(date +"%y_%m_%d")/DPT_ICEIC_resize_load \
 --batch_size 4 \
 --val_path ./SelfEqui_testset_full/ \
+--input_height 448 \
+--input_width 1024 \
 --num_epochs 50 \
 --lr 1e-6 \
 --eval_crop_ratio 12 \

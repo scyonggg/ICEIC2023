@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import pickle
 
 from .base_model import BaseModel
 from .blocks import (
@@ -76,7 +77,6 @@ class DPT(BaseModel):
     def forward(self, x):
         if self.channels_last == True:
             x.contiguous(memory_format=torch.channels_last)
-
         layer_1, layer_2, layer_3, layer_4 = forward_vit(self.pretrained, x)
 
         layer_1_rn = self.scratch.layer1_rn(layer_1)
@@ -198,9 +198,12 @@ class Top_conv(nn.Module):
         
         self.split_H = split_H
 
-        self.TopConv = nn.Conv2d(3, dim_stem, 32, 16, 8)
+        self.TopConv = nn.Conv2d(3, dim_stem, (32, 16), (32, 16), 0)
         self.MidConv = nn.Conv2d(3, dim_stem, 16, 16)
-        self.BotConv = nn.Conv2d(3, dim_stem, 32, 16, 8)
+        self.BotConv = nn.Conv2d(3, dim_stem, (32, 16), (32, 16), 0)
+        with open('./MidConv.pkl', 'rb') as fr:
+            MidConv_state_dict = pickle.load(fr)
+        self.MidConv.load_state_dict(MidConv_state_dict)
         # self.Conv1 = nn.Conv2d(dim_stem, dim, 3, 1, 1)
 
     def forward(self, x: torch.tensor):
@@ -208,10 +211,9 @@ class Top_conv(nn.Module):
         top_img = x[..., :self.split_H, :]
         mid_img = x[..., self.split_H : img_h - self.split_H, :]
         bot_img = x[..., img_h - self.split_H : img_h, :]
+        TopImg = self.TopConv(top_img) # B, 3, 64, 1024  -> B, 1024, 2, 64
+        MidImg = self.MidConv(mid_img) # B, 3, 384, 1024 -> B, 1024, 24, 64
+        BotImg = self.BotConv(bot_img) # B, 3, 64, 1024  -> B, 1024, 2, 64
+        img = torch.cat([TopImg, MidImg, BotImg], dim=2) # B, 1024, 28, 64
 
-        TopImg = self.TopConv(top_img) # B, 3, 64, 1024  -> B, 1024, 4, 64
-        MidImg = self.TopConv(mid_img) # B, 3, 384, 1024 -> B, 1024, 24, 64
-        BotImg = self.TopConv(bot_img) # B, 3, 64, 1024  -> B, 1024, 4, 64
-        img = torch.cat([TopImg, MidImg, BotImg], dim=2) # B, 1024, 32, 64
-        # img = self.Conv1(img)
         return img

@@ -44,6 +44,10 @@ import previous_works.svsyn.utils
 ## Omnidepth ##
 from previous_works.network import *
 
+## ICEIC ##
+from ..DPT.dpt.models import ICEIC_DPTDepthModel, DPTDepthModel
+
+
 class BadPixelMetric:
     def __init__(self, threshold=1.25, depth_cap=10,data_type='None',align_type='Image'):
         self.__threshold = threshold
@@ -635,17 +639,20 @@ class Evaluation(object):
             self.encoder = DAT(strides=[-1,-1,-1,-1], offset_range_factor=[-1, -1, -1, -1], 
                  stage_spec = [['L', 'S'], ['L', 'S'], ['L', 'S', 'L', 'S', 'L', 'S', 'L', 'S', 'L', 'S', 'L', 'S', 'L', 'S', 'L', 'S', 'L', 'S'], ['L', 'S']], groups=[-1, -1, -1,-1], hybrid=self.use_hybrid)
  
-        self.decoder = Conv_Decoder() 
+        elif self.config.backbone == 'ICEIC':
+            self.encoder = ICEIC_DPTDepthModel(path=self.config.enc_path, backbone="vitl16_384")
+ 
+        # self.decoder = Conv_Decoder() 
 
         self.encoder.cuda(self.gpu)
         self.encoder = torch.nn.parallel.DistributedDataParallel(self.encoder, device_ids=[self.gpu], find_unused_parameters=True)
-        self.decoder.cuda(self.gpu)
-        self.decoder = torch.nn.parallel.DistributedDataParallel(self.decoder, device_ids=[self.gpu], find_unused_parameters=True)
+        # self.decoder.cuda(self.gpu)
+        # self.decoder = torch.nn.parallel.DistributedDataParallel(self.decoder, device_ids=[self.gpu], find_unused_parameters=True)
 
         self.encoder.load_state_dict(torch.load(self.config.enc_path),strict=True)
         self.encoder.eval()
-        self.decoder.load_state_dict(torch.load(self.config.dec_path),strict=True)
-        self.decoder.eval()
+        # self.decoder.load_state_dict(torch.load(self.config.dec_path),strict=True)
+        # self.decoder.eval()
 
 
         # Reset meter
@@ -684,13 +691,14 @@ class Evaluation(object):
                 elif self.config.eval_data == 'Inference':    
                     inputs = data[0].float().cuda()
 
-                if self.config.backbone == 'CSwin':               
-                    features = self.encoder(inputs)
+                if self.config.backbone == 'ICEIC':
+                    output = self.encoder(inputs)
                 else:
-                    features,_,_ = self.encoder(inputs)
-
-
-                output = self.decoder(features)
+                    if self.config.backbone == 'CSwin':               
+                        features = self.encoder(inputs)
+                    else:
+                        features,_,_ = self.encoder(inputs)
+                    output = self.decoder(features)
 
                 if self.config.save_sample: 
                     disp_pp = output

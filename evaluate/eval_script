@@ -6,7 +6,10 @@
 
 
 ####### CSwin / Structured3D #### (ID 5)
-python3 evaluate_main.py --method enc_dec --backbone CSwin  --eval_data Structure3D --enc_path ../checkpoints/baseline_37/models/encoder-14.pkl --dec_path ../checkpoints/baseline_37/models/decoder-14.pkl --data_path ../../Structure3D/test/ --world_size 1 --rank 0 --gpu 0 --align_type Column 
+# python3 evaluate_main.py --method enc_dec --backbone CSwin  --eval_data Structure3D --enc_path ../checkpoints/baseline_37/models/encoder-14.pkl --dec_path ../checkpoints/baseline_37/models/decoder-14.pkl --data_path ../../Structure3D/test/ --world_size 1 --rank 0 --gpu 0 --align_type Column 
+
+####### ICEIC2023 #######
+python3 evaluate_main.py --method enc_dec --backbone ICEIC  --eval_data Structure3D --enc_path ../checkpoints/22_10_19/DPT_ICEIC_resize_load/models/encoder-32.pkl --data_path ../../Structure3D/test/ --world_size 1 --rank 0 --gpu 0 --align_type Column 
 
 
 

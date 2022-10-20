@@ -57,8 +57,8 @@ def main_worker(gpu, ngpus_per_node, config):
                     transforms.ToTensor()
                     ])
 
-
     S3D_data = S3D_loader(config.S3D_path,transform = transform_s3d,transform_t = transform_s3d)
+    # S3D_data = S3D_loader(config.S3D_path,transform = transform, transform_t = transform_s3d)
     if config.distributed:
         train_sampler = torch.utils.data.distributed.DistributedSampler(S3D_data)
     else:
